@@ -1,62 +1,162 @@
 package com.example.game.logic
 
 import com.example.game.model.CandyType
+import com.example.game.model.DEFAULT_COLUMNS
+import com.example.game.model.DEFAULT_ROWS
 import com.example.game.model.LevelConfig
 import com.example.game.model.LevelObjective
 import com.example.game.model.ObjectiveType
 
+/**
+ * Data provider responsible for defining, configuring, and supplying level blueprints.
+ * Enables data-driven level generation and future level extensibility.
+ */
 object LevelProvider {
 
-    fun getLevelConfig(level: Int): LevelConfig {
-        return when (level) {
-            1 -> LevelConfig(
-                levelNumber = 1,
-                maxMoves = 25,
-                targetScore = 1200,
-                objectives = listOf(
-                    LevelObjective(ObjectiveType.COLLECT_CANDY, targetAmount = 15, targetCandyType = CandyType.RED),
-                    LevelObjective(ObjectiveType.TARGET_SCORE, targetAmount = 1200)
-                ),
-                title = "Level 1: Sweet Beginnings"
-            )
-            2 -> LevelConfig(
-                levelNumber = 2,
-                maxMoves = 22,
-                targetScore = 2000,
-                objectives = listOf(
-                    LevelObjective(ObjectiveType.COLLECT_CANDY, targetAmount = 18, targetCandyType = CandyType.BLUE),
-                    LevelObjective(ObjectiveType.COLLECT_CANDY, targetAmount = 18, targetCandyType = CandyType.GREEN),
-                    LevelObjective(ObjectiveType.TARGET_SCORE, targetAmount = 2000)
-                ),
-                title = "Level 2: Dual Delight"
-            )
-            3 -> LevelConfig(
-                levelNumber = 3,
-                maxMoves = 20,
-                targetScore = 3000,
-                objectives = listOf(
-                    LevelObjective(ObjectiveType.COLLECT_CANDY, targetAmount = 20, targetCandyType = CandyType.PURPLE),
-                    LevelObjective(ObjectiveType.MAKE_MATCHES, targetAmount = 12),
-                    LevelObjective(ObjectiveType.TARGET_SCORE, targetAmount = 3000)
-                ),
-                title = "Level 3: Sugar Rush"
-            )
-            else -> {
-                val color = CandyType.entries[(level - 1) % CandyType.entries.size]
-                val moves = (20 - (level / 2)).coerceAtLeast(12)
-                val target = 2500 + (level * 750)
-                LevelConfig(
-                    levelNumber = level,
-                    maxMoves = moves,
-                    targetScore = target,
-                    objectives = listOf(
-                        LevelObjective(ObjectiveType.COLLECT_CANDY, targetAmount = 15 + level * 2, targetCandyType = color),
-                        LevelObjective(ObjectiveType.MAKE_MATCHES, targetAmount = 10 + level),
-                        LevelObjective(ObjectiveType.TARGET_SCORE, targetAmount = target)
-                    ),
-                    title = "Level $level: Master Challenge"
-                )
-            }
+    /**
+     * Retrieves the [LevelConfig] for the requested [levelNumber].
+     * If the level number exceeds configured hand-crafted levels, returns a valid
+     * procedurally generated level configuration.
+     */
+    fun getLevelConfig(levelNumber: Int): LevelConfig {
+        val safeLevel = if (levelNumber <= 0) 1 else levelNumber
+        return when (safeLevel) {
+            1 -> createLevel1()
+            2 -> createLevel2()
+            3 -> createLevel3()
+            else -> createDynamicLevel(safeLevel)
         }
+    }
+
+    /**
+     * Level 1:
+     * Board: 8x8, Moves: 30
+     * Objectives: Collect 20 Red candies, Reach 500 points.
+     */
+    fun createLevel1(): LevelConfig = LevelConfig(
+        levelNumber = 1,
+        rows = DEFAULT_ROWS,
+        columns = DEFAULT_COLUMNS,
+        startingMoves = 30,
+        objectives = listOf(
+            LevelObjective(
+                id = "lvl1_obj_red",
+                type = ObjectiveType.COLLECT_CANDY,
+                target = 20,
+                candyType = CandyType.RED
+            ),
+            LevelObjective(
+                id = "lvl1_obj_score",
+                type = ObjectiveType.TARGET_SCORE,
+                target = 500
+            )
+        ),
+        targetScore = 500
+    )
+
+    /**
+     * Level 2:
+     * Board: 8x8, Moves: 30
+     * Objectives: Collect 25 Blue candies, Reach 750 points.
+     */
+    fun createLevel2(): LevelConfig = LevelConfig(
+        levelNumber = 2,
+        rows = DEFAULT_ROWS,
+        columns = DEFAULT_COLUMNS,
+        startingMoves = 30,
+        objectives = listOf(
+            LevelObjective(
+                id = "lvl2_obj_blue",
+                type = ObjectiveType.COLLECT_CANDY,
+                target = 25,
+                candyType = CandyType.BLUE
+            ),
+            LevelObjective(
+                id = "lvl2_obj_score",
+                type = ObjectiveType.TARGET_SCORE,
+                target = 750
+            )
+        ),
+        targetScore = 750
+    )
+
+    /**
+     * Level 3:
+     * Board: 8x8, Moves: 28
+     * Objectives: Collect 20 Green candies, Collect 20 Yellow candies, Reach 1000 points.
+     */
+    fun createLevel3(): LevelConfig = LevelConfig(
+        levelNumber = 3,
+        rows = DEFAULT_ROWS,
+        columns = DEFAULT_COLUMNS,
+        startingMoves = 28,
+        objectives = listOf(
+            LevelObjective(
+                id = "lvl3_obj_green",
+                type = ObjectiveType.COLLECT_CANDY,
+                target = 20,
+                candyType = CandyType.GREEN
+            ),
+            LevelObjective(
+                id = "lvl3_obj_yellow",
+                type = ObjectiveType.COLLECT_CANDY,
+                target = 20,
+                candyType = CandyType.YELLOW
+            ),
+            LevelObjective(
+                id = "lvl3_obj_score",
+                type = ObjectiveType.TARGET_SCORE,
+                target = 1000
+            )
+        ),
+        targetScore = 1000
+    )
+
+    /**
+     * Fallback and procedural level creator for Level 4+ to support future level expansions seamlessly.
+     */
+    private fun createDynamicLevel(levelNumber: Int): LevelConfig {
+        val playableCandies = CandyType.playableCandies
+        val primaryColor = playableCandies[(levelNumber - 1) % playableCandies.size]
+        val secondaryColor = playableCandies[levelNumber % playableCandies.size]
+        val baseScore = 1000 + (levelNumber - 3) * 250
+        val targetCandies = (20 + (levelNumber - 3) * 2).coerceAtMost(40)
+        val moves = (28 - (levelNumber - 3)).coerceAtLeast(22)
+
+        val objectives = mutableListOf<LevelObjective>()
+        objectives.add(
+            LevelObjective(
+                id = "lvl${levelNumber}_obj_primary",
+                type = ObjectiveType.COLLECT_CANDY,
+                target = targetCandies,
+                candyType = primaryColor
+            )
+        )
+        if (levelNumber % 2 == 0) {
+            objectives.add(
+                LevelObjective(
+                    id = "lvl${levelNumber}_obj_secondary",
+                    type = ObjectiveType.COLLECT_CANDY,
+                    target = targetCandies,
+                    candyType = secondaryColor
+                )
+            )
+        }
+        objectives.add(
+            LevelObjective(
+                id = "lvl${levelNumber}_obj_score",
+                type = ObjectiveType.TARGET_SCORE,
+                target = baseScore
+            )
+        )
+
+        return LevelConfig(
+            levelNumber = levelNumber,
+            rows = DEFAULT_ROWS,
+            columns = DEFAULT_COLUMNS,
+            startingMoves = moves,
+            objectives = objectives,
+            targetScore = baseScore
+        )
     }
 }

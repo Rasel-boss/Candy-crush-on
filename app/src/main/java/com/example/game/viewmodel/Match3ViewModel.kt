@@ -2,28 +2,30 @@ package com.example.game.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.game.audio.HapticFeedbackManager
-import com.example.game.audio.ISoundManager
-import com.example.game.audio.SoundManager
 import com.example.game.logic.BoardGenerator
-import com.example.game.logic.BoardRefiller
 import com.example.game.logic.BoardValidator
 import com.example.game.logic.GravityProcessor
+import com.example.game.logic.BoardRefiller
 import com.example.game.logic.LevelProvider
 import com.example.game.logic.MatchDetector
 import com.example.game.logic.MatchResolver
 import com.example.game.logic.ObjectiveManager
-import com.example.game.logic.SpecialCandyActivator
-import com.example.game.logic.SpecialCandyCreator
 import com.example.game.logic.SpecialCandyResolver
 import com.example.game.logic.SpecialCombinationResolver
 import com.example.game.model.BoardPosition
 import com.example.game.model.CandyTile
 import com.example.game.model.CandyType
+import com.example.game.model.DEFAULT_COLUMNS
+import com.example.game.model.DEFAULT_MOVES
+import com.example.game.model.DEFAULT_ROWS
+import com.example.game.model.FloatingScoreEvent
 import com.example.game.model.GameState
 import com.example.game.model.GameStatus
 import com.example.game.model.Match3Board
+import com.example.game.model.SpecialCombinationType
 import com.example.game.utils.ScoreCalculator
+import kotlin.random.Random
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -31,350 +33,664 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-class Match3ViewModel(
-    private val boardGenerator: BoardGenerator = BoardGenerator(),
-    private val matchDetector: MatchDetector = MatchDetector(),
-    private val specialCreator: SpecialCandyCreator = SpecialCandyCreator(),
-    private val specialResolver: SpecialCandyResolver = SpecialCandyResolver(),
-    private val combinationResolver: SpecialCombinationResolver = SpecialCombinationResolver(),
-    private val specialActivator: SpecialCandyActivator = SpecialCandyActivator(),
-    private val gravityProcessor: GravityProcessor = GravityProcessor(),
-    private val boardRefiller: BoardRefiller = BoardRefiller(),
-    private val boardValidator: BoardValidator = BoardValidator(),
-    private val scoreCalculator: ScoreCalculator = ScoreCalculator(),
-    private val objectiveManager: ObjectiveManager = ObjectiveManager(),
-    private val soundManager: ISoundManager = SoundManager(),
-    private val hapticManager: HapticFeedbackManager? = null
-) : ViewModel() {
+/**
+ * Result of a player tile interaction or swap attempt.
+ */
+sealed class SwapInteractionResult {
+    data class Selected(val position: BoardPosition) : SwapInteractionResult()
+    object Deselected : SwapInteractionResult()
+    data class SelectionChanged(val newPosition: BoardPosition) : SwapInteractionResult()
+    data class ValidSwap(val from: BoardPosition, val to: BoardPosition, val movesLeft: Int) : SwapInteractionResult()
+    data class InvalidSwap(val from: BoardPosition, val to: BoardPosition) : SwapInteractionResult()
+    object Ignored : SwapInteractionResult()
+}
 
-    private val _gameState = MutableStateFlow(GameState())
+/**
+ * ViewModel managing the Match-3 puzzle game lifecycle, tile selection,
+ * adjacent tile swap validation, match resolution, gravity, board refill,
+ * cascade iterations, score calculation, game feel effects, and move counting.
+ */
+class Match3ViewModel : ViewModel() {
+
+    private val _gameState = MutableStateFlow(GameState.createInitial())
     val gameState: StateFlow<GameState> = _gameState.asStateFlow()
 
-    init {
-        startLevel(1)
-    }
+    private var cascadeJob: Job? = null
+    private var invalidSwapJob: Job? = null
+    private var floatingScoreId = 1L
 
-    fun startLevel(level: Int) {
+    /** Delay in milliseconds between cascade visual steps (0 for instantaneous tests) */
+    var stepDelayMs: Long = 120L
+
+    /** Callbacks for sound and haptics triggered directly from ViewModel events */
+    var onTileSelectedListener: (() -> Unit)? = null
+    var onValidSwapListener: (() -> Unit)? = null
+    var onInvalidSwapListener: (() -> Unit)? = null
+    var onMatchResolvedListener: ((matchIntensity: Int) -> Unit)? = null
+    var onCascadeListener: ((chainCount: Int) -> Unit)? = null
+    var onGameOverListener: (() -> Unit)? = null
+    var onLevelCompleteListener: (() -> Unit)? = null
+
+    /**
+     * Starts or initiates a new Match-3 game session for the specified [level].
+     * Loads the level configuration, creates a fresh board, resets score to 0,
+     * initializes level objectives, and transitions status to [GameStatus.PLAYING].
+     */
+    fun startGame(
+        level: Int = 1,
+        rows: Int = DEFAULT_ROWS,
+        columns: Int = DEFAULT_COLUMNS,
+        random: Random = Random.Default
+    ) {
+        cascadeJob?.cancel()
+        invalidSwapJob?.cancel()
+
         val config = LevelProvider.getLevelConfig(level)
-        val initialBoard = boardGenerator.generateBoard()
+        val actualRows = if (config.rows > 0) config.rows else rows
+        val actualCols = if (config.columns > 0) config.columns else columns
+        val freshBoard = BoardGenerator.generateBoard(actualRows, actualCols, random)
+        val initialObjectives = ObjectiveManager.initializeObjectives(config)
 
-        _gameState.value = GameState(
-            board = initialBoard,
-            score = 0,
-            targetScore = config.targetScore,
-            movesRemaining = config.maxMoves,
-            currentLevel = level,
-            status = GameStatus.IDLE,
-            selectedPosition = null,
-            levelConfig = config,
-            objectives = config.objectives
-        )
-    }
-
-    fun restartCurrentLevel() {
-        startLevel(_gameState.value.currentLevel)
-    }
-
-    fun nextLevel() {
-        startLevel(_gameState.value.currentLevel + 1)
-    }
-
-    fun pauseGame() {
-        if (_gameState.value.status == GameStatus.IDLE) {
-            _gameState.update { it.copy(status = GameStatus.PAUSED) }
+        _gameState.update {
+            GameState(
+                board = freshBoard,
+                rows = actualRows,
+                columns = actualCols,
+                selectedPosition = null,
+                score = 0,
+                movesRemaining = config.startingMoves,
+                level = level,
+                levelConfig = config,
+                objectives = initialObjectives,
+                isGameStarted = true,
+                isProcessing = false,
+                isLevelCompleted = false,
+                isGameOver = false,
+                status = GameStatus.PLAYING,
+                cascadeChainCount = 0,
+                matchingPositions = emptySet(),
+                invalidSwapPair = null,
+                swappingPair = null,
+                floatingScoreEvents = emptyList(),
+                isBoardImpact = false
+            )
         }
     }
 
-    fun resumeGame() {
-        if (_gameState.value.status == GameStatus.PAUSED) {
-            _gameState.update { it.copy(status = GameStatus.IDLE) }
+    /**
+     * Handles user interaction when tapping a tile at [position].
+     *
+     * Rules:
+     * 1. If game status is NOT [GameStatus.PLAYING] or is currently processing, ignore.
+     * 2. If [position] is outside board bounds, ignore.
+     * 3. If tile at [position] is EMPTY / not playable, ignore.
+     * 4. If no tile is selected: select this tile.
+     * 5. If tapped tile is the currently selected tile: deselect it (no move consumed).
+     * 6. If tapped tile is NOT adjacent: update selection to the new tile (no move consumed).
+     * 7. If tapped tile IS adjacent:
+     *    - Evaluate whether swapping creates a valid match of 3 or more involving either swapped tile.
+     *    - VALID SWAP:
+     *        - Apply swapped board state.
+     *        - Decrease [movesRemaining] by 1 (cannot become negative).
+     *        - Clear [selectedPosition].
+     *        - Transition to [GameStatus.PROCESSING] and resolve matches, gravity, refills, and cascades.
+     *    - INVALID SWAP:
+     *        - Restore / keep original board state.
+     *        - [movesRemaining] and [score] unchanged.
+     *        - Trigger brief rejection feedback on swapped tiles.
+     *        - Clear [selectedPosition].
+     *        - Return to [GameStatus.PLAYING].
+     *
+     * Returns true if selection changed or valid swap executed, false if invalid swap or ignored.
+     */
+    fun selectTile(position: BoardPosition, random: Random = Random.Default): Boolean {
+        val currentState = _gameState.value
+
+        // Guard 1: Interactions only allowed during active Playing state without processing lock
+        if (currentState.status != GameStatus.PLAYING || currentState.isProcessing) {
+            return false
         }
-    }
 
-    fun onTileClicked(position: BoardPosition) {
-        val state = _gameState.value
-        if (state.status != GameStatus.IDLE) return
+        // Guard 2: Position must be within board bounds
+        if (!BoardValidator.isValidPosition(position, currentState.rows, currentState.columns)) {
+            return false
+        }
 
-        val selected = state.selectedPosition
-        if (selected == null) {
-            _gameState.update { it.copy(selectedPosition = position) }
+        // Guard 3: Tile must be playable (not EMPTY or missing)
+        val tappedTile = currentState.board.getTile(position)
+        if (tappedTile == null || !tappedTile.isPlayable) {
+            return false
+        }
+
+        val currentSelected = currentState.selectedPosition
+
+        if (currentSelected == null) {
+            // First tile selection
+            _gameState.update { it.copy(selectedPosition = position, invalidSwapPair = null) }
+            onTileSelectedListener?.invoke()
+            return true
+        } else if (currentSelected == position) {
+            // Tapped same tile again -> deselect
+            _gameState.update { it.copy(selectedPosition = null, invalidSwapPair = null) }
+            return true
+        } else if (currentSelected.isAdjacent(position)) {
+            // Adjacent tile tapped -> perform swap evaluation
+            return attemptSwap(currentSelected, position, random)
         } else {
-            if (selected == position) {
-                _gameState.update { it.copy(selectedPosition = null) }
-            } else if (selected.isAdjacentTo(position)) {
-                _gameState.update { it.copy(selectedPosition = null) }
-                performSwap(selected, position)
-            } else {
-                _gameState.update { it.copy(selectedPosition = position) }
-            }
+            // Non-adjacent tile tapped -> change selection to the new tile
+            _gameState.update { it.copy(selectedPosition = position, invalidSwapPair = null) }
+            onTileSelectedListener?.invoke()
+            return true
         }
     }
 
-    private fun performSwap(pos1: BoardPosition, pos2: BoardPosition) {
-        viewModelScope.launch {
-            val state = _gameState.value
-            val tile1 = state.board[pos1] ?: return@launch
-            val tile2 = state.board[pos2] ?: return@launch
+    /**
+     * Public alias for selecting/tapping a tile at [position], providing a clean API.
+     */
+    fun onTileTapped(position: BoardPosition, random: Random = Random.Default): Boolean {
+        return selectTile(position, random)
+    }
 
-            _gameState.update { it.copy(status = GameStatus.SWAPPING) }
+    /**
+     * Public alias for tapping by row and column coordinates.
+     */
+    fun onTileTapped(row: Int, column: Int, random: Random = Random.Default): Boolean {
+        return selectTile(BoardPosition(row, column), random)
+    }
 
-            // Check if special combination exists
-            val comboType = combinationResolver.checkCombination(tile1, tile2)
-            if (comboType != null) {
-                val comboResult = combinationResolver.resolveCombination(
-                    state.board, pos1, pos2, tile1, tile2
-                )
-                if (comboResult != null) {
-                    executeSpecialCombination(comboResult, pos2)
-                    return@launch
-                }
-            }
+    /**
+     * Convenience overload for selecting by row and column coordinates.
+     */
+    fun selectTile(row: Int, column: Int): Boolean = selectTile(BoardPosition(row, column))
 
-            // Check if single color bomb activated with normal candy
-            if (tile1.isColorBomb || tile2.isColorBomb) {
-                val bombPos = if (tile1.isColorBomb) pos1 else pos2
-                val targetCandy = if (tile1.isColorBomb) tile2 else tile1
-                executeColorBombDetonation(bombPos, targetCandy.type)
-                return@launch
-            }
+    /**
+     * Evaluates and attempts a swap between adjacent positions [from] and [to].
+     * If valid, applies swap, decrements moves by 1, transitions to PROCESSING, and resolves cascade.
+     * If invalid, triggers rejection feedback, restores original positions, preserves moves and score.
+     */
+    private fun attemptSwap(
+        from: BoardPosition,
+        to: BoardPosition,
+        random: Random = Random.Default
+    ): Boolean {
+        val currentState = _gameState.value
+        val selectedTile = currentState.board.getTile(from)
+        val targetTile = currentState.board.getTile(to)
+        if (selectedTile == null || !selectedTile.isPlayable || targetTile == null || !targetTile.isPlayable) {
+            _gameState.update { it.copy(selectedPosition = null, invalidSwapPair = null) }
+            return false
+        }
 
-            // Standard match swap
-            val swappedBoard = state.board.swap(pos1, pos2)
-            val matches = matchDetector.findMatches(swappedBoard)
+        val isSpecialCombination = SpecialCombinationResolver.canCombine(
+            board = currentState.board,
+            posA = from,
+            posB = to
+        )
+        val isSpecialSwap = isSpecialCombination || SpecialCandyResolver.isDirectSpecialSwap(
+            board = currentState.board,
+            posA = from,
+            posB = to
+        )
+        val isMatchSwap = if (!isSpecialSwap) {
+            MatchDetector.doesSwapCreateMatch(
+                board = currentState.board,
+                posA = from,
+                posB = to
+            )
+        } else {
+            false
+        }
 
-            if (matches.isNotEmpty()) {
-                val newMoves = state.movesRemaining - 1
+        val isValidSwap = isSpecialSwap || isMatchSwap
+
+        if (isValidSwap) {
+            val newMovesRemaining = (currentState.movesRemaining - 1).coerceAtLeast(0)
+            onValidSwapListener?.invoke()
+
+            if (stepDelayMs == 0L) {
+                // Synchronous immediate execution (tests)
+                val swappedBoard = currentState.board.swapTiles(from, to)
                 _gameState.update {
                     it.copy(
                         board = swappedBoard,
-                        movesRemaining = newMoves,
-                        status = GameStatus.MATCHING
+                        selectedPosition = null,
+                        movesRemaining = newMovesRemaining,
+                        isProcessing = true,
+                        invalidSwapPair = null,
+                        swappingPair = null,
+                        status = GameStatus.PROCESSING
                     )
                 }
-                soundManager.playMatchSound()
-                hapticManager?.performMatchHaptic()
-                resolveCascades(swappedBoard, pos2)
+                resolveCascadesSynchronously(from, to, random)
             } else {
-                // Invalid swap: brief visual feedback then revert
-                val tempBoard = state.board.swap(pos1, pos2)
-                _gameState.update { it.copy(board = tempBoard) }
-                delay(200)
-                _gameState.update { it.copy(board = state.board, status = GameStatus.IDLE) }
-            }
-        }
-    }
+                // Smooth visual sliding animation phase
+                _gameState.update {
+                    it.copy(
+                        selectedPosition = null,
+                        movesRemaining = newMovesRemaining,
+                        isProcessing = true,
+                        invalidSwapPair = null,
+                        swappingPair = Pair(from, to),
+                        status = GameStatus.PROCESSING
+                    )
+                }
 
-    private suspend fun executeSpecialCombination(
-        comboResult: com.example.game.logic.CombinationResult,
-        center: BoardPosition
-    ) {
-        val state = _gameState.value
-        val newMoves = state.movesRemaining - 1
-        _gameState.update { it.copy(movesRemaining = newMoves, status = GameStatus.MATCHING) }
-        soundManager.playDetonationSound()
-        hapticManager?.performSpecialExplosionHaptic()
-
-        val removedTiles = mutableListOf<CandyTile>()
-        for (pos in comboResult.affectedPositions) {
-            val tile = state.board[pos]
-            if (tile != null) removedTiles.add(tile)
-        }
-
-        val stepScore = scoreCalculator.calculateMatchScore(
-            matchCount = 1,
-            totalCandiesCleared = comboResult.affectedPositions.size,
-            cascadeIndex = 0,
-            specialsActivated = 2
-        ) * comboResult.scoreMultiplier
-
-        var boardAfterRemoval = state.board
-        for (pos in comboResult.affectedPositions) {
-            boardAfterRemoval = boardAfterRemoval.set(pos, null)
-        }
-
-        val updatedObjectives = objectiveManager.updateObjectives(
-            objectives = state.objectives,
-            removedTiles = removedTiles,
-            matchesFormed = 1,
-            currentScore = state.score + stepScore
-        )
-
-        _gameState.update {
-            it.copy(
-                board = boardAfterRemoval,
-                score = it.score + stepScore,
-                objectives = updatedObjectives
-            )
-        }
-        delay(250)
-
-        // Gravity & Refill
-        val gravity = gravityProcessor.applyGravity(boardAfterRemoval)
-        val refill = boardRefiller.refillBoard(gravity.updatedBoard)
-        _gameState.update { it.copy(board = refill.updatedBoard) }
-        delay(200)
-
-        resolveCascades(refill.updatedBoard, center)
-    }
-
-    private suspend fun executeColorBombDetonation(bombPos: BoardPosition, targetColor: CandyType) {
-        val state = _gameState.value
-        val newMoves = state.movesRemaining - 1
-        _gameState.update { it.copy(movesRemaining = newMoves, status = GameStatus.MATCHING) }
-        soundManager.playDetonationSound()
-        hapticManager?.performSpecialExplosionHaptic()
-
-        val affected = specialActivator.getAffectedPositions(
-            state.board, bombPos, com.example.game.model.SpecialCandyType.COLOR_BOMB, targetColor
-        )
-
-        val removedTiles = mutableListOf<CandyTile>()
-        for (pos in affected) {
-            val t = state.board[pos]
-            if (t != null) removedTiles.add(t)
-        }
-
-        val stepScore = scoreCalculator.calculateMatchScore(
-            matchCount = 1,
-            totalCandiesCleared = affected.size,
-            cascadeIndex = 0,
-            specialsActivated = 1
-        )
-
-        var boardAfterRemoval = state.board
-        for (pos in affected) {
-            boardAfterRemoval = boardAfterRemoval.set(pos, null)
-        }
-
-        val updatedObjectives = objectiveManager.updateObjectives(
-            objectives = state.objectives,
-            removedTiles = removedTiles,
-            matchesFormed = 1,
-            currentScore = state.score + stepScore
-        )
-
-        _gameState.update {
-            it.copy(
-                board = boardAfterRemoval,
-                score = it.score + stepScore,
-                objectives = updatedObjectives
-            )
-        }
-        delay(250)
-
-        val gravity = gravityProcessor.applyGravity(boardAfterRemoval)
-        val refill = boardRefiller.refillBoard(gravity.updatedBoard)
-        _gameState.update { it.copy(board = refill.updatedBoard) }
-        delay(200)
-
-        resolveCascades(refill.updatedBoard, bombPos)
-    }
-
-    private suspend fun resolveCascades(initialBoard: Match3Board, triggerPos: BoardPosition?) {
-        var currentBoard = initialBoard
-        var cascadeIndex = 0
-
-        while (true) {
-            val matches = matchDetector.findMatches(currentBoard)
-            if (matches.isEmpty()) break
-
-            _gameState.update {
-                it.copy(
-                    status = GameStatus.MATCHING,
-                    cascadeCount = cascadeIndex,
-                    comboMultiplier = cascadeIndex + 1
-                )
-            }
-
-            val matchedPositions = mutableSetOf<BoardPosition>()
-            val createdSpecials = mutableListOf<com.example.game.logic.CreatedSpecialCandy>()
-
-            for (match in matches) {
-                matchedPositions.addAll(match.positions)
-                val special = specialCreator.checkAndCreateSpecial(
-                    match,
-                    if (cascadeIndex == 0) triggerPos else null
-                )
-                if (special != null) {
-                    createdSpecials.add(special)
-                    soundManager.playSpecialCreatedSound()
+                cascadeJob?.cancel()
+                cascadeJob = viewModelScope.launch {
+                    delay(140L)
+                    val swappedBoard = _gameState.value.board.swapTiles(from, to)
+                    _gameState.update {
+                        it.copy(
+                            board = swappedBoard,
+                            swappingPair = null
+                        )
+                    }
+                    resolveMatchesAndCascades(from, to, random)
                 }
             }
-
-            val detonationResult = specialResolver.resolveDetonations(currentBoard, matchedPositions)
-            val allRemoved = matchedPositions + detonationResult.affectedPositions
-
-            val removedTiles = mutableListOf<CandyTile>()
-            for (pos in allRemoved) {
-                val tile = currentBoard[pos]
-                if (tile != null) removedTiles.add(tile)
-            }
-
-            val stepScore = scoreCalculator.calculateMatchScore(
-                matchCount = matches.size,
-                totalCandiesCleared = allRemoved.size,
-                cascadeIndex = cascadeIndex,
-                specialsActivated = detonationResult.secondaryActivations.size
-            )
-
-            var boardAfterRemoval = currentBoard
-            for (pos in allRemoved) {
-                boardAfterRemoval = boardAfterRemoval.set(pos, null)
-            }
-            for (spec in createdSpecials) {
-                boardAfterRemoval = boardAfterRemoval.set(spec.position, spec.tile)
-            }
-
-            val curState = _gameState.value
-            val updatedObjectives = objectiveManager.updateObjectives(
-                objectives = curState.objectives,
-                removedTiles = removedTiles,
-                matchesFormed = matches.size,
-                currentScore = curState.score + stepScore
-            )
-
+            return true
+        } else {
+            // INVALID SWAP: Trigger rejection feedback, restore original board, do not decrement moves
             _gameState.update {
                 it.copy(
-                    board = boardAfterRemoval,
-                    score = it.score + stepScore,
-                    objectives = updatedObjectives
+                    selectedPosition = null,
+                    invalidSwapPair = Pair(from, to),
+                    swappingPair = null,
+                    status = GameStatus.PLAYING
                 )
             }
-            delay(220)
+            onInvalidSwapListener?.invoke()
 
-            _gameState.update { it.copy(status = GameStatus.FALLING) }
-            val gravity = gravityProcessor.applyGravity(boardAfterRemoval)
-            _gameState.update { it.copy(board = gravity.updatedBoard) }
-            delay(150)
-
-            val refill = boardRefiller.refillBoard(gravity.updatedBoard)
-            _gameState.update { it.copy(board = refill.updatedBoard) }
-            delay(150)
-
-            currentBoard = refill.updatedBoard
-            cascadeIndex++
+            if (stepDelayMs > 0) {
+                invalidSwapJob?.cancel()
+                invalidSwapJob = viewModelScope.launch {
+                    delay(220L)
+                    _gameState.update { it.copy(invalidSwapPair = null) }
+                }
+            } else {
+                _gameState.update { it.copy(invalidSwapPair = null) }
+            }
+            return false
         }
-
-        checkGameEndConditions()
     }
 
-    private fun checkGameEndConditions() {
-        val state = _gameState.value
-        if (state.isLevelCompleted) {
-            soundManager.playVictorySound()
-            hapticManager?.performVictoryHaptic()
-            _gameState.update { it.copy(status = GameStatus.VICTORY) }
-        } else if (state.movesRemaining <= 0) {
-            soundManager.playGameOverSound()
-            _gameState.update { it.copy(status = GameStatus.GAME_OVER) }
-        } else {
+    /**
+     * Calculates deterministic match score for match length [matchLength].
+     */
+    fun calculateMatchScore(matchLength: Int): Int = ScoreCalculator.calculateMatchScore(matchLength)
+
+    /**
+     * Removes matched candy tiles at [positions], returning the updated board with EMPTY slots.
+     */
+    fun removeMatches(board: Match3Board, positions: Set<BoardPosition>): Match3Board {
+        return MatchResolver.removeMatches(board, positions)
+    }
+
+    /**
+     * Applies downward column gravity, shifting floating candies down.
+     */
+    fun collapseBoard(board: Match3Board): Match3Board {
+        return GravityProcessor.applyGravity(board)
+    }
+
+    /**
+     * Refills all EMPTY slots from the top with fresh random playable candies.
+     */
+    fun refillBoard(board: Match3Board, random: Random = Random.Default): Match3Board {
+        return BoardRefiller.refillBoard(board, random)
+    }
+
+    /**
+     * Executes asynchronous cascade resolution pipeline:
+     * 1. Detect all matches and special activations on current board.
+     * 2. For each step:
+     *    - Score points for matches and special activations.
+     *    - Trigger match dissolve animation (highlight, pulse, fade).
+     *    - Create floating score indicator.
+     *    - Remove matches/specials (and place new special candies).
+     *    - Apply downward gravity (candies fall, EMPTY at top).
+     *    - Refill empty positions with new random candies.
+     *    - Repeat until no matches remain.
+     * 3. Transition to [GameStatus.GAME_OVER] if moves reached 0, or [GameStatus.PLAYING] otherwise.
+     */
+    private fun resolveMatchesAndCascades(
+        swapPosA: BoardPosition? = null,
+        swapPosB: BoardPosition? = null,
+        random: Random = Random.Default
+    ) {
+        cascadeJob?.cancel()
+        cascadeJob = viewModelScope.launch {
+            var currentBoard = _gameState.value.board
+            var iterations = 0
+            val maxIterations = MatchResolver.MAX_CASCADE_ITERATIONS
+            val alreadyActivatedIds = mutableSetOf<Long>()
+
+            // 1. If direct special swap was initiated
+            if (swapPosA != null && swapPosB != null && SpecialCandyResolver.isDirectSpecialSwap(currentBoard, swapPosA, swapPosB)) {
+                val tileA = currentBoard.getTile(swapPosA)
+                val tileB = currentBoard.getTile(swapPosB)
+                val comboType = if (tileA != null && tileB != null) {
+                    SpecialCombinationResolver.detectCombination(tileA, tileB)
+                } else {
+                    SpecialCombinationType.NONE
+                }
+
+                val specialStep = MatchResolver.resolveDirectSpecialSwapStep(
+                    currentBoard = currentBoard,
+                    posA = swapPosA,
+                    posB = swapPosB,
+                    random = random,
+                    alreadyActivatedIds = alreadyActivatedIds
+                )
+
+                val centerRow = if (specialStep.matchedPositions.isNotEmpty()) {
+                    specialStep.matchedPositions.map { it.row }.average().toFloat()
+                } else 3.5f
+                val centerCol = if (specialStep.matchedPositions.isNotEmpty()) {
+                    specialStep.matchedPositions.map { it.column }.average().toFloat()
+                } else 3.5f
+
+                val floatingEvent = FloatingScoreEvent(
+                    id = floatingScoreId++,
+                    score = specialStep.stepScore,
+                    centerRow = centerRow,
+                    centerColumn = centerCol,
+                    cascadeCount = 1
+                )
+
+                _gameState.update {
+                    it.copy(
+                        matchingPositions = specialStep.matchedPositions,
+                        matchIntensity = 5,
+                        cascadeChainCount = 1,
+                        activeComboType = comboType,
+                        comboPositions = specialStep.matchedPositions,
+                        floatingScoreEvents = it.floatingScoreEvents + floatingEvent,
+                        isBoardImpact = true
+                    )
+                }
+                onMatchResolvedListener?.invoke(5)
+                if (stepDelayMs > 0) delay(stepDelayMs)
+
+                val newScore = _gameState.value.score + specialStep.stepScore
+                var updatedObjectives = ObjectiveManager.onCandiesRemoved(_gameState.value.objectives, specialStep.removedTiles)
+                updatedObjectives = ObjectiveManager.onScoreChanged(updatedObjectives, newScore)
+
+                _gameState.update {
+                    it.copy(
+                        board = specialStep.boardAfterRemoval,
+                        score = newScore,
+                        objectives = updatedObjectives,
+                        matchingPositions = emptySet(),
+                        isBoardImpact = false
+                    )
+                }
+                if (stepDelayMs > 0) delay(stepDelayMs)
+
+                _gameState.update { it.copy(board = specialStep.boardAfterGravity) }
+                if (stepDelayMs > 0) delay(stepDelayMs)
+
+                _gameState.update {
+                    it.copy(
+                        board = specialStep.boardAfterRefill,
+                        activeComboType = SpecialCombinationType.NONE,
+                        comboPositions = emptySet()
+                    )
+                }
+                if (stepDelayMs > 0) delay(stepDelayMs)
+
+                currentBoard = specialStep.boardAfterRefill
+                iterations++
+            }
+
+            while (iterations < maxIterations) {
+                val isFirstStep = iterations == 0
+                val stepSwapA = if (isFirstStep) swapPosA else null
+                val stepSwapB = if (isFirstStep) swapPosB else null
+
+                val step = MatchResolver.resolveSingleStep(
+                    currentBoard = currentBoard,
+                    swapPosA = stepSwapA,
+                    swapPosB = stepSwapB,
+                    random = random,
+                    alreadyActivatedIds = alreadyActivatedIds
+                ) ?: break
+
+                val chainCount = iterations + 1
+                val maxMatchLength = step.matches.maxOfOrNull { it.length } ?: 3
+
+                val centerRow = if (step.matchedPositions.isNotEmpty()) {
+                    step.matchedPositions.map { it.row }.average().toFloat()
+                } else 3.5f
+                val centerCol = if (step.matchedPositions.isNotEmpty()) {
+                    step.matchedPositions.map { it.column }.average().toFloat()
+                } else 3.5f
+
+                val floatingEvent = FloatingScoreEvent(
+                    id = floatingScoreId++,
+                    score = step.stepScore,
+                    centerRow = centerRow,
+                    centerColumn = centerCol,
+                    cascadeCount = chainCount
+                )
+
+                // Match step: highlight, glow, pulse
+                _gameState.update {
+                    it.copy(
+                        matchingPositions = step.matchedPositions,
+                        matchIntensity = maxMatchLength,
+                        cascadeChainCount = chainCount,
+                        floatingScoreEvents = it.floatingScoreEvents + floatingEvent,
+                        isBoardImpact = (step.matchedPositions.size >= 6 || chainCount >= 2)
+                    )
+                }
+
+                if (chainCount >= 2) {
+                    onCascadeListener?.invoke(chainCount)
+                } else {
+                    onMatchResolvedListener?.invoke(maxMatchLength)
+                }
+                if (stepDelayMs > 0) delay(stepDelayMs)
+
+                val newScore = _gameState.value.score + step.stepScore
+                var updatedObjectives = ObjectiveManager.onCandiesRemoved(_gameState.value.objectives, step.removedTiles)
+                updatedObjectives = ObjectiveManager.onMatchesMade(updatedObjectives, step.matches.size)
+                updatedObjectives = ObjectiveManager.onScoreChanged(updatedObjectives, newScore)
+
+                // Update board after removal & placing specials
+                _gameState.update {
+                    it.copy(
+                        board = step.boardAfterRemoval,
+                        score = newScore,
+                        objectives = updatedObjectives,
+                        matchingPositions = emptySet(),
+                        isBoardImpact = false
+                    )
+                }
+                if (stepDelayMs > 0) delay(stepDelayMs)
+
+                // Update board after gravity
+                _gameState.update { it.copy(board = step.boardAfterGravity) }
+                if (stepDelayMs > 0) delay(stepDelayMs)
+
+                // Update board after refill
+                _gameState.update { it.copy(board = step.boardAfterRefill) }
+                if (stepDelayMs > 0) delay(stepDelayMs)
+
+                currentBoard = step.boardAfterRefill
+                iterations++
+            }
+
+            // Board is now stable; determine next game state
+            val finalState = _gameState.value
+            val allCompleted = ObjectiveManager.areAllObjectivesCompleted(finalState.objectives)
+            val finalMoves = finalState.movesRemaining
+            val isGameOver = !allCompleted && finalMoves == 0
+            val isCompleted = allCompleted
+
+            val nextStatus = when {
+                isCompleted -> GameStatus.COMPLETED
+                isGameOver -> GameStatus.GAME_OVER
+                else -> GameStatus.PLAYING
+            }
+
             _gameState.update {
                 it.copy(
-                    status = GameStatus.IDLE,
-                    cascadeCount = 0,
-                    comboMultiplier = 1
+                    isProcessing = false,
+                    isLevelCompleted = isCompleted,
+                    isGameOver = isGameOver,
+                    status = nextStatus,
+                    cascadeChainCount = 0,
+                    matchingPositions = emptySet(),
+                    isBoardImpact = false
                 )
             }
+
+            if (isCompleted) {
+                onLevelCompleteListener?.invoke()
+            } else if (isGameOver) {
+                onGameOverListener?.invoke()
+            }
         }
+    }
+
+    /**
+     * Synchronously resolves matches and cascades on the current state.
+     * Useful for deterministic testing and immediate state verification.
+     */
+    fun resolveCascadesSynchronously(
+        swapPosA: BoardPosition? = null,
+        swapPosB: BoardPosition? = null,
+        random: Random = Random.Default
+    ) {
+        val currentBoard = _gameState.value.board
+        val result = MatchResolver.resolveAllCascades(
+            initialBoard = currentBoard,
+            swapPosA = swapPosA,
+            swapPosB = swapPosB,
+            random = random
+        )
+        val newScore = _gameState.value.score + result.totalScoreGained
+        var updatedObjectives = _gameState.value.objectives
+        for (step in result.steps) {
+            updatedObjectives = ObjectiveManager.onCandiesRemoved(updatedObjectives, step.removedTiles)
+            updatedObjectives = ObjectiveManager.onMatchesMade(updatedObjectives, step.matches.size)
+        }
+        updatedObjectives = ObjectiveManager.onScoreChanged(updatedObjectives, newScore)
+
+        val allCompleted = ObjectiveManager.areAllObjectivesCompleted(updatedObjectives)
+        val finalMoves = _gameState.value.movesRemaining
+        val isGameOver = !allCompleted && finalMoves == 0
+        val isCompleted = allCompleted
+
+        val nextStatus = when {
+            isCompleted -> GameStatus.COMPLETED
+            isGameOver -> GameStatus.GAME_OVER
+            else -> GameStatus.PLAYING
+        }
+
+        _gameState.update {
+            it.copy(
+                board = result.finalBoard,
+                score = newScore,
+                objectives = updatedObjectives,
+                selectedPosition = null,
+                isProcessing = false,
+                isLevelCompleted = isCompleted,
+                isGameOver = isGameOver,
+                status = nextStatus,
+                cascadeChainCount = 0,
+                matchingPositions = emptySet(),
+                invalidSwapPair = null,
+                isBoardImpact = false
+            )
+        }
+
+        if (isCompleted) {
+            onLevelCompleteListener?.invoke()
+        } else if (isGameOver) {
+            onGameOverListener?.invoke()
+        }
+    }
+
+    /**
+     * Synchronous resolution overload without swap positions for cascade testing.
+     */
+    fun resolveCascadesSynchronously(random: Random = Random.Default) {
+        resolveCascadesSynchronously(null, null, random)
+    }
+
+    /**
+     * Restarts the current Match-3 level with a freshly generated valid board,
+     * resetting score to 0, moves to starting moves, and objective progress.
+     */
+    fun restartGame(random: Random = Random.Default) {
+        replayLevel(random)
+    }
+
+    /**
+     * Replays the active level.
+     * Generates a fresh board, resets score to 0, moves to initial starting moves,
+     * resets objective progress, and transitions status to [GameStatus.PLAYING].
+     */
+    fun replayLevel(random: Random = Random.Default) {
+        val currentLevel = _gameState.value.level
+        startGame(level = currentLevel, random = random)
+    }
+
+    /**
+     * Advances to the next level in sequence.
+     * Increments the level number, loads the corresponding [LevelConfig],
+     * resets score to 0, starting moves, and initializes fresh objectives.
+     */
+    fun nextLevel(random: Random = Random.Default) {
+        val nextLevelNumber = _gameState.value.level + 1
+        startGame(level = nextLevelNumber, random = random)
+    }
+
+    /**
+     * Pauses the active game session.
+     */
+    fun pauseGame() {
+        _gameState.update { currentState ->
+            if (currentState.status == GameStatus.PLAYING && !currentState.isProcessing) {
+                currentState.copy(status = GameStatus.PAUSED)
+            } else {
+                currentState
+            }
+        }
+    }
+
+    /**
+     * Resumes the paused game session.
+     */
+    fun resumeGame() {
+        _gameState.update { currentState ->
+            if (currentState.status == GameStatus.PAUSED) {
+                currentState.copy(status = GameStatus.PLAYING)
+            } else {
+                currentState
+            }
+        }
+    }
+
+    /**
+     * Resets the game back to the initial Ready state for Level 1.
+     */
+    fun resetGame() {
+        cascadeJob?.cancel()
+        invalidSwapJob?.cancel()
+        _gameState.update { currentState ->
+            GameState.createInitial(currentState.rows, currentState.columns, level = 1)
+        }
+    }
+
+    /**
+     * Direct state injection helper for deterministic unit and UI testing.
+     */
+    internal fun setCustomState(state: GameState) {
+        cascadeJob?.cancel()
+        invalidSwapJob?.cancel()
+        _gameState.value = state
     }
 }

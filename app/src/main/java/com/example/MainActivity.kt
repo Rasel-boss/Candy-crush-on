@@ -5,11 +5,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.game.viewmodel.Match3ViewModel
 import com.example.ui.navigation.PuzzleNavHost
-import com.example.ui.theme.BackgroundDark
 import com.example.ui.theme.PuzzleMasterTheme
 
 class MainActivity : ComponentActivity() {
@@ -18,13 +18,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             PuzzleMasterTheme {
-                Surface(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .safeDrawingPadding(),
-                    color = BackgroundDark
-                ) {
-                    PuzzleNavHost()
+                val viewModel: Match3ViewModel = viewModel()
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    PuzzleNavHost(match3ViewModel = viewModel)
                 }
             }
         }

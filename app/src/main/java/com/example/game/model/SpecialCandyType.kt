@@ -1,8 +1,18 @@
 package com.example.game.model
 
-enum class SpecialCandyType(val displayName: String, val description: String) {
-    STRIPED_HORIZONTAL("Striped Horizontal", "Clears the entire horizontal row"),
-    STRIPED_VERTICAL("Striped Vertical", "Clears the entire vertical column"),
-    WRAPPED("Wrapped Candy", "Explodes twice in a 3x3 radius"),
-    COLOR_BOMB("Color Bomb", "Clears all candies of a chosen color")
+/**
+ * Types of special power-up abilities a candy tile can possess.
+ */
+enum class SpecialCandyType {
+    NONE,
+    HORIZONTAL_STRIPED,
+    VERTICAL_STRIPED,
+    WRAPPED,
+    COLOR_BOMB;
+
+    val isSpecial: Boolean
+        get() = this != NONE
+
+    val isStriped: Boolean
+        get() = this == HORIZONTAL_STRIPED || this == VERTICAL_STRIPED
 }

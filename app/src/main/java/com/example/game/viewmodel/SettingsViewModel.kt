@@ -7,24 +7,27 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
+/**
+ * ViewModel managing session-level settings (sound effects and haptic feedback toggles).
+ */
 class SettingsViewModel : ViewModel() {
 
-    private val _settings = MutableStateFlow(GameSettings())
-    val settings: StateFlow<GameSettings> = _settings.asStateFlow()
+    private val _settingsState = MutableStateFlow(GameSettings())
+    val settingsState: StateFlow<GameSettings> = _settingsState.asStateFlow()
+
+    fun setSoundEnabled(enabled: Boolean) {
+        _settingsState.update { it.copy(soundEnabled = enabled) }
+    }
+
+    fun setVibrationEnabled(enabled: Boolean) {
+        _settingsState.update { it.copy(vibrationEnabled = enabled) }
+    }
 
     fun toggleSound() {
-        _settings.update { it.copy(soundEnabled = !it.soundEnabled) }
+        _settingsState.update { it.copy(soundEnabled = !it.soundEnabled) }
     }
 
-    fun toggleMusic() {
-        _settings.update { it.copy(musicEnabled = !it.musicEnabled) }
-    }
-
-    fun toggleHaptic() {
-        _settings.update { it.copy(hapticEnabled = !it.hapticEnabled) }
-    }
-
-    fun toggleParticles() {
-        _settings.update { it.copy(particlesEnabled = !it.particlesEnabled) }
+    fun toggleVibration() {
+        _settingsState.update { it.copy(vibrationEnabled = !it.vibrationEnabled) }
     }
 }
