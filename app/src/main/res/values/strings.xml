@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">Puzzle Master</string>
+    <string name="title_main_menu">Puzzle Master</string>
+    <string name="title_levels">Levels</string>
+    <string name="title_settings">Settings</string>
+    <string name="btn_play">Play</string>
+    <string name="btn_levels">Select Level</string>
+    <string name="btn_settings">Settings</string>
+    <string name="btn_resume">Resume</string>
+    <string name="btn_restart">Restart</string>
+    <string name="btn_next_level">Next Level</string>
+    <string name="btn_main_menu">Main Menu</string>
+</resources>
