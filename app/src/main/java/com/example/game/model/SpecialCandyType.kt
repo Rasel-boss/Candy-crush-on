@@ -15,4 +15,9 @@ enum class SpecialCandyType {
 
     val isStriped: Boolean
         get() = this == HORIZONTAL_STRIPED || this == VERTICAL_STRIPED
+
+    companion object {
+        val STRIPED_HORIZONTAL: SpecialCandyType = HORIZONTAL_STRIPED
+        val STRIPED_VERTICAL: SpecialCandyType = VERTICAL_STRIPED
+    }
 }

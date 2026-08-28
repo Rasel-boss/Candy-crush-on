@@ -1,6 +1,7 @@
 package com.example.game.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -29,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -49,7 +51,9 @@ import com.example.game.ui.effects.CanvasParticleOverlay
 import com.example.game.ui.effects.CascadeIndicator
 import com.example.game.ui.effects.FloatingScoreOverlay
 import com.example.game.ui.effects.ParticleFactory
+import com.example.game.ui.effects.SpecialActivationOverlay
 import com.example.game.ui.effects.rememberParticleSystemState
+import androidx.compose.runtime.key
 
 /**
  * Modern Match-3 game grid view with a rounded dark container, soft shadow,
@@ -102,6 +106,22 @@ fun Match3BoardView(
         animationSpec = tween(durationMillis = 140, easing = FastOutSlowInEasing),
         label = "swap_progress"
     )
+
+    val invalidSwapAnim = remember { Animatable(0f) }
+    LaunchedEffect(invalidSwapPair) {
+        if (invalidSwapPair != null) {
+            invalidSwapAnim.animateTo(
+                targetValue = 0.36f,
+                animationSpec = tween(durationMillis = 85, easing = FastOutSlowInEasing)
+            )
+            invalidSwapAnim.animateTo(
+                targetValue = 0f,
+                animationSpec = tween(durationMillis = 115, easing = FastOutSlowInEasing)
+            )
+        } else {
+            invalidSwapAnim.snapTo(0f)
+        }
+    }
 
     BoxWithConstraints(
         modifier = modifier
@@ -181,7 +201,7 @@ fun Match3BoardView(
                         val isMatching = matchingPositions.contains(pos)
                         val isInvalidSwap = invalidSwapPair?.first == pos || invalidSwapPair?.second == pos
 
-                        // Calculate visual offset during active swap
+                        // Calculate visual offset during active valid or invalid swap
                         var swapOffsetX = 0f
                         var swapOffsetY = 0f
                         if (swappingPair != null) {
@@ -193,6 +213,16 @@ fun Match3BoardView(
                                 val target = swappingPair.first
                                 swapOffsetX = (target.column - pos.column) * tileSizePx * swapProgress
                                 swapOffsetY = (target.row - pos.row) * tileSizePx * swapProgress
+                            }
+                        } else if (invalidSwapPair != null && invalidSwapAnim.value > 0f) {
+                            if (invalidSwapPair.first == pos) {
+                                val target = invalidSwapPair.second
+                                swapOffsetX = (target.column - pos.column) * tileSizePx * invalidSwapAnim.value
+                                swapOffsetY = (target.row - pos.row) * tileSizePx * invalidSwapAnim.value
+                            } else if (invalidSwapPair.second == pos) {
+                                val target = invalidSwapPair.first
+                                swapOffsetX = (target.column - pos.column) * tileSizePx * invalidSwapAnim.value
+                                swapOffsetY = (target.row - pos.row) * tileSizePx * invalidSwapAnim.value
                             }
                         }
 
@@ -208,22 +238,32 @@ fun Match3BoardView(
                             contentAlignment = Alignment.Center
                         ) {
                             if (tile != null) {
-                                CandyTileView(
-                                    tile = tile,
-                                    isSelected = isSelected,
-                                    isMatching = isMatching || isComboTile,
-                                    isInvalidSwap = isInvalidSwap,
-                                    onClick = { onTileClick(pos) },
-                                    modifier = Modifier.offset {
-                                        IntOffset(swapOffsetX.toInt(), swapOffsetY.toInt())
-                                    }
-                                )
+                                key(tile.id) {
+                                    CandyTileView(
+                                        tile = tile,
+                                        isSelected = isSelected,
+                                        isMatching = isMatching || isComboTile,
+                                        isInvalidSwap = isInvalidSwap,
+                                        onClick = { onTileClick(pos) },
+                                        modifier = Modifier.offset {
+                                            IntOffset(swapOffsetX.toInt(), swapOffsetY.toInt())
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
         }
+
+        // Special Candy Laser / Shockwave Sweep Overlay
+        SpecialActivationOverlay(
+            matchingPositions = matchingPositions,
+            boardRows = board.rows,
+            boardCols = board.columns,
+            modifier = Modifier.fillMaxSize()
+        )
 
         // Particle System Overlay (GPU Canvas)
         CanvasParticleOverlay(

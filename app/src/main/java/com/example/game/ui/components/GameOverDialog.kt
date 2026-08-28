@@ -1,5 +1,8 @@
 package com.example.game.ui.components
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,7 +19,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SentimentDissatisfied
 import androidx.compose.material.icons.filled.Stars
@@ -30,9 +35,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -41,21 +51,30 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.example.game.model.LevelObjective
 import com.example.game.utils.ScoreCalculator
 import com.example.ui.theme.PuzzleMasterTheme
 
 /**
  * Game Over dialog displayed when the player runs out of moves in Match-3 mode.
- * Shows final score, moves count (0), and provides RESTART and HOME buttons.
+ * Shows final score, moves count (0), objective progress, and provides RESTART and HOME buttons.
  */
 @Composable
 fun GameOverDialog(
     score: Int,
     level: Int = 1,
+    objectives: List<LevelObjective> = emptyList(),
     onRestart: () -> Unit,
     onHome: () -> Unit,
     onDismissRequest: () -> Unit = onHome
 ) {
+    val entranceAlpha = remember { Animatable(0f) }
+    val entranceScale = remember { Animatable(0.92f) }
+    LaunchedEffect(Unit) {
+        entranceAlpha.animateTo(1f, tween(180, easing = FastOutSlowInEasing))
+        entranceScale.animateTo(1f, tween(180, easing = FastOutSlowInEasing))
+    }
+
     Dialog(
         onDismissRequest = onDismissRequest,
         properties = DialogProperties(
@@ -73,6 +92,8 @@ fun GameOverDialog(
             modifier = Modifier
                 .fillMaxWidth(0.9f)
                 .padding(16.dp)
+                .alpha(entranceAlpha.value)
+                .scale(entranceScale.value)
                 .testTag("game_over_dialog")
         ) {
             Column(
@@ -163,6 +184,60 @@ fun GameOverDialog(
                     }
                 }
 
+                // Objectives Progress Summary
+                if (objectives.isNotEmpty()) {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = "Objectives Status:",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            objectives.forEach { objective ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = if (objective.isCompleted) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                                            contentDescription = null,
+                                            tint = if (objective.isCompleted) Color(0xFF10B981) else Color(0xFFEF4444),
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Text(
+                                            text = objective.displayTitle,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                    Text(
+                                        text = "${objective.displayCurrent}/${objective.target}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = if (objective.isCompleted) Color(0xFF10B981) else Color(0xFFEF4444)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // Moves Left Row
                 Surface(
                     shape = RoundedCornerShape(16.dp),
@@ -227,7 +302,7 @@ fun GameOverDialog(
                     }
                 }
 
-                // HOME BUTTON
+                // HOME / LEVELS BUTTON
                 FilledTonalButton(
                     onClick = onHome,
                     shape = RoundedCornerShape(12.dp),
@@ -239,6 +314,7 @@ fun GameOverDialog(
                         .fillMaxWidth()
                         .height(50.dp)
                         .testTag("game_over_home_button")
+                        .testTag("game_over_levels_button")
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -251,7 +327,7 @@ fun GameOverDialog(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "HOME",
+                            text = "LEVELS / HOME",
                             style = MaterialTheme.typography.titleSmall.copy(
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 1.sp

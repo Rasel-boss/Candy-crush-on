@@ -6,6 +6,7 @@ import com.example.game.logic.BoardGenerator
 import com.example.game.logic.BoardValidator
 import com.example.game.logic.GravityProcessor
 import com.example.game.logic.BoardRefiller
+import com.example.game.logic.LevelProgressionManager
 import com.example.game.logic.LevelProvider
 import com.example.game.logic.MatchDetector
 import com.example.game.logic.MatchResolver
@@ -71,6 +72,8 @@ class Match3ViewModel : ViewModel() {
     var onGameOverListener: (() -> Unit)? = null
     var onLevelCompleteListener: (() -> Unit)? = null
 
+    private var isStartingLevel = false
+
     /**
      * Starts or initiates a new Match-3 game session for the specified [level].
      * Loads the level configuration, creates a fresh board, resets score to 0,
@@ -80,12 +83,18 @@ class Match3ViewModel : ViewModel() {
         level: Int = 1,
         rows: Int = DEFAULT_ROWS,
         columns: Int = DEFAULT_COLUMNS,
-        random: Random = Random.Default
-    ) {
+        random: Random = Random.Default,
+        enforceLock: Boolean = false
+    ): Boolean {
         cascadeJob?.cancel()
         invalidSwapJob?.cancel()
 
-        val config = LevelProvider.getLevelConfig(level)
+        val safeLevel = if (level <= 0) 1 else level
+        if (enforceLock && !LevelProgressionManager.isLevelUnlocked(safeLevel)) {
+            return false
+        }
+
+        val config = LevelProvider.getLevelConfig(safeLevel)
         val actualRows = if (config.rows > 0) config.rows else rows
         val actualCols = if (config.columns > 0) config.columns else columns
         val freshBoard = BoardGenerator.generateBoard(actualRows, actualCols, random)
@@ -99,7 +108,7 @@ class Match3ViewModel : ViewModel() {
                 selectedPosition = null,
                 score = 0,
                 movesRemaining = config.startingMoves,
-                level = level,
+                level = safeLevel,
                 levelConfig = config,
                 objectives = initialObjectives,
                 isGameStarted = true,
@@ -115,6 +124,17 @@ class Match3ViewModel : ViewModel() {
                 isBoardImpact = false
             )
         }
+        return true
+    }
+
+    /**
+     * Starts a level only if it is unlocked in the progression system.
+     */
+    fun startLevelIfUnlocked(
+        level: Int,
+        random: Random = Random.Default
+    ): Boolean {
+        return startGame(level = level, random = random, enforceLock = true)
     }
 
     /**
@@ -523,6 +543,9 @@ class Match3ViewModel : ViewModel() {
 
             // Board is now stable; determine next game state
             val finalState = _gameState.value
+            val wasAlreadyCompleted = finalState.isLevelCompleted || finalState.status == GameStatus.COMPLETED
+            val wasAlreadyGameOver = finalState.isGameOver || finalState.status == GameStatus.GAME_OVER
+
             val allCompleted = ObjectiveManager.areAllObjectivesCompleted(finalState.objectives)
             val finalMoves = finalState.movesRemaining
             val isGameOver = !allCompleted && finalMoves == 0
@@ -546,9 +569,27 @@ class Match3ViewModel : ViewModel() {
                 )
             }
 
-            if (isCompleted) {
+            // Automatic Dead Board Recovery: If playing and no moves remain, regenerate board safely
+            if (nextStatus == GameStatus.PLAYING && !MatchDetector.hasPossibleMoves(currentBoard)) {
+                val recoveredBoard = BoardGenerator.generateBoard(
+                    rows = finalState.rows,
+                    columns = finalState.columns,
+                    random = random,
+                    allowedTypes = CandyType.PLAYABLE_TYPES,
+                    ensurePossibleMoves = true
+                )
+                _gameState.update {
+                    it.copy(
+                        board = recoveredBoard,
+                        selectedPosition = null
+                    )
+                }
+            }
+
+            if (isCompleted && !wasAlreadyCompleted) {
+                LevelProgressionManager.recordLevelCompletion(finalState.level, finalState.score)
                 onLevelCompleteListener?.invoke()
-            } else if (isGameOver) {
+            } else if (isGameOver && !wasAlreadyGameOver) {
                 onGameOverListener?.invoke()
             }
         }
@@ -563,6 +604,9 @@ class Match3ViewModel : ViewModel() {
         swapPosB: BoardPosition? = null,
         random: Random = Random.Default
     ) {
+        val wasAlreadyCompleted = _gameState.value.isLevelCompleted || _gameState.value.status == GameStatus.COMPLETED
+        val wasAlreadyGameOver = _gameState.value.isGameOver || _gameState.value.status == GameStatus.GAME_OVER
+
         val currentBoard = _gameState.value.board
         val result = MatchResolver.resolveAllCascades(
             initialBoard = currentBoard,
@@ -589,9 +633,21 @@ class Match3ViewModel : ViewModel() {
             else -> GameStatus.PLAYING
         }
 
+        var finalBoard = result.finalBoard
+        // Automatic Dead Board Recovery: If playing and no moves remain, regenerate board safely
+        if (nextStatus == GameStatus.PLAYING && !MatchDetector.hasPossibleMoves(finalBoard)) {
+            finalBoard = BoardGenerator.generateBoard(
+                rows = _gameState.value.rows,
+                columns = _gameState.value.columns,
+                random = random,
+                allowedTypes = CandyType.PLAYABLE_TYPES,
+                ensurePossibleMoves = true
+            )
+        }
+
         _gameState.update {
             it.copy(
-                board = result.finalBoard,
+                board = finalBoard,
                 score = newScore,
                 objectives = updatedObjectives,
                 selectedPosition = null,
@@ -606,11 +662,41 @@ class Match3ViewModel : ViewModel() {
             )
         }
 
-        if (isCompleted) {
+        if (isCompleted && !wasAlreadyCompleted) {
+            LevelProgressionManager.recordLevelCompletion(_gameState.value.level, newScore)
             onLevelCompleteListener?.invoke()
-        } else if (isGameOver) {
+        } else if (isGameOver && !wasAlreadyGameOver) {
             onGameOverListener?.invoke()
         }
+    }
+
+    /**
+     * Checks whether the active game board has any valid possible moves remaining.
+     * If no valid moves exist and the game is active, automatically recovers/reshuffles the board
+     * while preserving score, moves remaining, objectives, and level.
+     */
+    fun checkAndRecoverDeadBoard(random: Random = Random.Default): Boolean {
+        val state = _gameState.value
+        if (state.status != GameStatus.PLAYING || state.isProcessing || state.isGameOver || state.isLevelCompleted) {
+            return false
+        }
+        if (!MatchDetector.hasPossibleMoves(state.board)) {
+            val recoveredBoard = BoardGenerator.generateBoard(
+                rows = state.rows,
+                columns = state.columns,
+                random = random,
+                allowedTypes = CandyType.PLAYABLE_TYPES,
+                ensurePossibleMoves = true
+            )
+            _gameState.update {
+                it.copy(
+                    board = recoveredBoard,
+                    selectedPosition = null
+                )
+            }
+            return true
+        }
+        return false
     }
 
     /**
@@ -624,8 +710,8 @@ class Match3ViewModel : ViewModel() {
      * Restarts the current Match-3 level with a freshly generated valid board,
      * resetting score to 0, moves to starting moves, and objective progress.
      */
-    fun restartGame(random: Random = Random.Default) {
-        replayLevel(random)
+    fun restartGame(random: Random = Random.Default): Boolean {
+        return replayLevel(random)
     }
 
     /**
@@ -633,9 +719,15 @@ class Match3ViewModel : ViewModel() {
      * Generates a fresh board, resets score to 0, moves to initial starting moves,
      * resets objective progress, and transitions status to [GameStatus.PLAYING].
      */
-    fun replayLevel(random: Random = Random.Default) {
-        val currentLevel = _gameState.value.level
-        startGame(level = currentLevel, random = random)
+    fun replayLevel(random: Random = Random.Default): Boolean {
+        if (isStartingLevel) return false
+        isStartingLevel = true
+        try {
+            val currentLevel = _gameState.value.level
+            return startGame(level = currentLevel, random = random)
+        } finally {
+            isStartingLevel = false
+        }
     }
 
     /**
@@ -643,9 +735,15 @@ class Match3ViewModel : ViewModel() {
      * Increments the level number, loads the corresponding [LevelConfig],
      * resets score to 0, starting moves, and initializes fresh objectives.
      */
-    fun nextLevel(random: Random = Random.Default) {
-        val nextLevelNumber = _gameState.value.level + 1
-        startGame(level = nextLevelNumber, random = random)
+    fun nextLevel(random: Random = Random.Default): Boolean {
+        if (isStartingLevel) return false
+        isStartingLevel = true
+        try {
+            val nextLevelNumber = _gameState.value.level + 1
+            return startGame(level = nextLevelNumber, random = random)
+        } finally {
+            isStartingLevel = false
+        }
     }
 
     /**
@@ -683,6 +781,15 @@ class Match3ViewModel : ViewModel() {
         _gameState.update { currentState ->
             GameState.createInitial(currentState.rows, currentState.columns, level = 1)
         }
+    }
+
+    /**
+     * Direct board injection helper for deterministic unit and UI testing.
+     */
+    internal fun setCustomBoard(board: Match3Board) {
+        cascadeJob?.cancel()
+        invalidSwapJob?.cancel()
+        _gameState.update { it.copy(board = board) }
     }
 
     /**

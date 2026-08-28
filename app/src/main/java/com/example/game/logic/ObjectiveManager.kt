@@ -23,7 +23,7 @@ object ObjectiveManager {
     }
 
     /**
-     * Updates [COLLECT_CANDY] objectives when a collection of [removedTiles] are cleared from the board.
+     * Updates [ObjectiveType.COLLECT_CANDY] objectives when a collection of [removedTiles] are cleared from the board.
      *
      * Rules:
      * - Only counts playable normal/colored candies matching [objective.candyType].
@@ -60,7 +60,7 @@ object ObjectiveManager {
     }
 
     /**
-     * Updates [TARGET_SCORE] objectives with the latest total [currentScore].
+     * Updates [ObjectiveType.TARGET_SCORE] and [ObjectiveType.SCORE_TARGET] objectives with the latest total [currentScore].
      * Target score progress tracks current session score directly.
      */
     fun onScoreChanged(
@@ -70,7 +70,7 @@ object ObjectiveManager {
         if (currentObjectives.isEmpty()) return currentObjectives
 
         return currentObjectives.map { objective ->
-            if (objective.type == ObjectiveType.TARGET_SCORE) {
+            if (objective.type.isScoreObjective) {
                 objective.copy(currentProgress = currentScore)
             } else {
                 objective
@@ -79,7 +79,7 @@ object ObjectiveManager {
     }
 
     /**
-     * Updates [MAKE_MATCHES] objectives when [matchesCount] valid linear or cascade matches occur.
+     * Updates [ObjectiveType.MAKE_MATCHES] objectives when [matchesCount] valid linear or cascade matches occur.
      */
     fun onMatchesMade(
         currentObjectives: List<LevelObjective>,
@@ -90,6 +90,24 @@ object ObjectiveManager {
         return currentObjectives.map { objective ->
             if (objective.type == ObjectiveType.MAKE_MATCHES) {
                 objective.copy(currentProgress = objective.currentProgress + matchesCount)
+            } else {
+                objective
+            }
+        }
+    }
+
+    /**
+     * Updates [ObjectiveType.CLEAR_BLOCKERS] objectives when [clearedBlockersCount] blockers are destroyed.
+     */
+    fun onBlockersCleared(
+        currentObjectives: List<LevelObjective>,
+        clearedBlockersCount: Int
+    ): List<LevelObjective> {
+        if (clearedBlockersCount <= 0 || currentObjectives.isEmpty()) return currentObjectives
+
+        return currentObjectives.map { objective ->
+            if (objective.type == ObjectiveType.CLEAR_BLOCKERS) {
+                objective.copy(currentProgress = objective.currentProgress + clearedBlockersCount)
             } else {
                 objective
             }

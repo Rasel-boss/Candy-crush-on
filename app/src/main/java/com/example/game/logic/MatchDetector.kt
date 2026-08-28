@@ -313,4 +313,98 @@ object MatchDetector {
     ): Boolean {
         return doesSwapCreateMatch(board, posA, posB)
     }
+
+    /**
+     * Pure, non-mutating check whether swapping adjacent tiles at [posA] and [posB] produces
+     * a valid move (either via standard 3-in-a-row match or special candy activation/combination).
+     */
+    fun isPotentialValidSwap(
+        board: Match3Board,
+        posA: BoardPosition,
+        posB: BoardPosition
+    ): Boolean {
+        if (!posA.isAdjacent(posB)) return false
+        if (!BoardValidator.isValidPosition(posA, board.rows, board.columns) ||
+            !BoardValidator.isValidPosition(posB, board.rows, board.columns)
+        ) {
+            return false
+        }
+        val tileA = board.getTile(posA) ?: return false
+        val tileB = board.getTile(posB) ?: return false
+        if (!tileA.isPlayable || !tileB.isPlayable) return false
+
+        // Check regular match
+        if (doesSwapCreateMatch(board, posA, posB)) {
+            return true
+        }
+
+        // Check special combination or direct special swap
+        if (SpecialCombinationResolver.canCombine(board, posA, posB) ||
+            SpecialCandyResolver.isDirectSpecialSwap(board, posA, posB)
+        ) {
+            return true
+        }
+
+        return false
+    }
+
+    /**
+     * Pure, non-mutating inspection of all adjacent horizontal and vertical pairs on [board].
+     * Returns true if at least one valid swap exists that produces a match or special effect.
+     * Returns false if no valid moves exist (dead board).
+     */
+    fun hasPossibleMoves(board: Match3Board): Boolean {
+        // 1. Inspect horizontal adjacent pairs
+        for (r in 0 until board.rows) {
+            for (c in 0 until board.columns - 1) {
+                val posA = BoardPosition(r, c)
+                val posB = BoardPosition(r, c + 1)
+                if (isPotentialValidSwap(board, posA, posB)) {
+                    return true
+                }
+            }
+        }
+
+        // 2. Inspect vertical adjacent pairs
+        for (r in 0 until board.rows - 1) {
+            for (c in 0 until board.columns) {
+                val posA = BoardPosition(r, c)
+                val posB = BoardPosition(r + 1, c)
+                if (isPotentialValidSwap(board, posA, posB)) {
+                    return true
+                }
+            }
+        }
+
+        return false
+    }
+
+    /**
+     * Returns all unique pairs of adjacent positions that form valid moves on [board].
+     */
+    fun findPossibleMoves(board: Match3Board): List<Pair<BoardPosition, BoardPosition>> {
+        val validMoves = mutableListOf<Pair<BoardPosition, BoardPosition>>()
+
+        for (r in 0 until board.rows) {
+            for (c in 0 until board.columns - 1) {
+                val posA = BoardPosition(r, c)
+                val posB = BoardPosition(r, c + 1)
+                if (isPotentialValidSwap(board, posA, posB)) {
+                    validMoves.add(posA to posB)
+                }
+            }
+        }
+
+        for (r in 0 until board.rows - 1) {
+            for (c in 0 until board.columns) {
+                val posA = BoardPosition(r, c)
+                val posB = BoardPosition(r + 1, c)
+                if (isPotentialValidSwap(board, posA, posB)) {
+                    validMoves.add(posA to posB)
+                }
+            }
+        }
+
+        return validMoves
+    }
 }

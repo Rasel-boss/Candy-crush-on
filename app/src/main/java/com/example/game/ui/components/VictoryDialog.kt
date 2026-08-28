@@ -1,5 +1,8 @@
 package com.example.game.ui.components
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,6 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Stars
@@ -31,9 +35,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -43,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.example.game.logic.LevelProvider
 import com.example.game.model.LevelObjective
 import com.example.game.utils.ScoreCalculator
 import com.example.ui.theme.PuzzleMasterTheme
@@ -65,6 +74,14 @@ fun VictoryDialog(
 ) {
     val movesBonus = moves * 10
     val totalScore = score + movesBonus
+    val hasNextLevel = LevelProvider.hasNextLevel(level)
+
+    val entranceAlpha = remember { Animatable(0f) }
+    val entranceScale = remember { Animatable(0.92f) }
+    LaunchedEffect(Unit) {
+        entranceAlpha.animateTo(1f, tween(180, easing = FastOutSlowInEasing))
+        entranceScale.animateTo(1f, tween(180, easing = FastOutSlowInEasing))
+    }
 
     Dialog(
         onDismissRequest = onDismissRequest,
@@ -83,6 +100,8 @@ fun VictoryDialog(
             modifier = Modifier
                 .fillMaxWidth(0.92f)
                 .padding(16.dp)
+                .alpha(entranceAlpha.value)
+                .scale(entranceScale.value)
                 .testTag("victory_dialog")
         ) {
             Column(
@@ -93,18 +112,19 @@ fun VictoryDialog(
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 20.dp, vertical = 20.dp)
             ) {
-                // Celebratory Badge Icon
+                // Celebratory Badge Icon (Clean M3 Vector)
                 Box(
                     modifier = Modifier
                         .size(56.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
+                        .background(Color(0xFFF59E0B)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "🎉",
-                        fontSize = 30.sp,
-                        textAlign = TextAlign.Center
+                    Icon(
+                        imageVector = Icons.Default.EmojiEvents,
+                        contentDescription = "Victory Trophy",
+                        tint = Color.White,
+                        modifier = Modifier.size(32.dp)
                     )
                 }
 
@@ -120,7 +140,11 @@ fun VictoryDialog(
 
                 // Congratulatory Message
                 Text(
-                    text = "Fantastic job! All objectives achieved.",
+                    text = if (hasNextLevel) {
+                        "Fantastic job! All objectives achieved."
+                    } else {
+                        "All current campaign levels completed! More levels coming soon."
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
@@ -239,7 +263,7 @@ fun VictoryDialog(
                                         )
                                     }
                                     Text(
-                                        text = "${objective.currentProgress}/${objective.target}",
+                                        text = "${objective.displayCurrent}/${objective.target}",
                                         style = MaterialTheme.typography.bodySmall,
                                         fontWeight = FontWeight.SemiBold,
                                         color = Color(0xFF10B981)
@@ -255,6 +279,7 @@ fun VictoryDialog(
                 // NEXT LEVEL ACTION BUTTON
                 Button(
                     onClick = onNextLevel,
+                    enabled = true,
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
@@ -270,7 +295,7 @@ fun VictoryDialog(
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Text(
-                            text = "NEXT LEVEL",
+                            text = if (hasNextLevel) "NEXT LEVEL" else "CONTINUE PLAY",
                             style = MaterialTheme.typography.titleSmall.copy(
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 1.sp
@@ -319,7 +344,7 @@ fun VictoryDialog(
                     }
                 }
 
-                // HOME ACTION BUTTON
+                // HOME / LEVELS ACTION BUTTON
                 FilledTonalButton(
                     onClick = onHome,
                     shape = RoundedCornerShape(12.dp),
@@ -331,6 +356,7 @@ fun VictoryDialog(
                         .fillMaxWidth()
                         .height(46.dp)
                         .testTag("victory_home_button")
+                        .testTag("victory_levels_button")
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -343,7 +369,7 @@ fun VictoryDialog(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "HOME",
+                            text = "LEVELS / HOME",
                             style = MaterialTheme.typography.titleSmall.copy(
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 0.5.sp

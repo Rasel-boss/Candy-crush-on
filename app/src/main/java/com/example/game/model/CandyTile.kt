@@ -25,6 +25,9 @@ data class CandyTile(
     val isSpecial: Boolean
         get() = specialCandyType.isSpecial
 
+    val isStriped: Boolean
+        get() = specialCandyType.isStriped
+
     val isEmpty: Boolean
         get() = type == CandyType.EMPTY && specialCandyType == SpecialCandyType.NONE
 }

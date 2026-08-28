@@ -97,4 +97,11 @@ object BoardValidator {
     fun containsInitialMatches(board: Match3Board): Boolean {
         return MatchDetector.hasAnyMatches(board)
     }
+
+    /**
+     * Checks if the board has at least one possible valid move remaining.
+     */
+    fun hasPossibleMoves(board: Match3Board): Boolean {
+        return MatchDetector.hasPossibleMoves(board)
+    }
 }

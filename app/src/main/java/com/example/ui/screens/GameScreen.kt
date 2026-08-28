@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -57,14 +58,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -254,25 +259,33 @@ fun GameScreenContent(
             )
 
             // Flexible Game Board Area with dynamically balanced square sizing
-            val hudAndHeaderBudget = if (isCompactHeight) 220.dp else 280.dp
-            val calculatedBoardSize = minOf(
-                screenWidth - (if (isTabletWidth) 48.dp else 16.dp),
-                screenHeight - hudAndHeaderBudget
-            ).coerceIn(230.dp, 480.dp)
+            val boardEntranceAlpha = remember { Animatable(0f) }
+            val boardEntranceScale = remember { Animatable(0.96f) }
+            LaunchedEffect(Unit) {
+                boardEntranceAlpha.animateTo(1f, tween(180, easing = FastOutSlowInEasing))
+                boardEntranceScale.animateTo(1f, tween(180, easing = FastOutSlowInEasing))
+            }
 
-            Box(
+            BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f, fill = false)
-                    .padding(vertical = if (isCompactHeight) 2.dp else 4.dp),
+                    .weight(1f)
+                    .padding(vertical = if (isCompactHeight) 2.dp else 4.dp)
+                    .graphicsLayer {
+                        alpha = boardEntranceAlpha.value
+                        scaleX = boardEntranceScale.value
+                        scaleY = boardEntranceScale.value
+                    },
                 contentAlignment = Alignment.Center
             ) {
+                val maxAllowedWidth = if (isTabletWidth) maxWidth - 48.dp else maxWidth - 8.dp
+                val boardSize = minOf(maxAllowedWidth, maxHeight).coerceIn(200.dp, 500.dp)
+
                 Match3BoardView(
                     board = gameState.board,
                     selectedPosition = gameState.selectedPosition,
                     onTileClick = onTileClick,
-                    modifier = Modifier
-                        .size(calculatedBoardSize),
+                    modifier = Modifier.size(boardSize),
                     activeComboType = gameState.activeComboType,
                     comboPositions = gameState.comboPositions,
                     matchingPositions = gameState.matchingPositions,
@@ -318,6 +331,7 @@ fun GameScreenContent(
             GameOverDialog(
                 score = gameState.score,
                 level = gameState.level,
+                objectives = gameState.objectives,
                 onRestart = onRestartClick,
                 onHome = onBackClick
             )
@@ -676,13 +690,22 @@ private fun StatBadgeCard(
                 )
             }
 
+            val valuePulse = remember(value) { Animatable(1.12f) }
+            LaunchedEffect(value) {
+                valuePulse.animateTo(
+                    targetValue = 1.0f,
+                    animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)
+                )
+            }
+
             Text(
                 text = value,
                 style = if (isCompact) MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black) else MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Black,
                 letterSpacing = 0.5.sp,
                 color = Color.White,
-                modifier = if (valueTag.isNotEmpty()) Modifier.testTag(valueTag) else Modifier
+                modifier = (if (valueTag.isNotEmpty()) Modifier.testTag(valueTag) else Modifier)
+                    .scale(valuePulse.value)
             )
         }
     }

@@ -9,6 +9,8 @@ package com.example.game.model
  * @property startingMoves Number of allowed moves available to the player.
  * @property objectives List of requirements the player must complete to clear the level.
  * @property targetScore Optional target score threshold (convenience reference if included in objectives).
+ * @property difficulty Level difficulty rating ([LevelDifficulty.EASY], [LevelDifficulty.NORMAL], [LevelDifficulty.HARD], [LevelDifficulty.EXPERT]).
+ * @property unlocked Whether this level is unlocked by default.
  */
 data class LevelConfig(
     val levelNumber: Int,
@@ -16,8 +18,48 @@ data class LevelConfig(
     val columns: Int = DEFAULT_COLUMNS,
     val startingMoves: Int = DEFAULT_MOVES,
     val objectives: List<LevelObjective> = emptyList(),
-    val targetScore: Int? = null
+    val targetScore: Int? = null,
+    val difficulty: LevelDifficulty = LevelDifficulty.NORMAL,
+    val unlocked: Boolean = true
 ) {
+    /** Alias for startingMoves for configuration compatibility */
+    val moves: Int get() = startingMoves
+
+    /** Alias for startingMoves for configuration compatibility */
+    val movesLimit: Int get() = startingMoves
+
+    /** Formatted difficulty text for display */
+    val difficultyLabel: String get() = difficulty.displayName
+
+    /** Primary objective type for single-objective summary if needed */
+    val objectiveType: ObjectiveType? get() = objectives.firstOrNull()?.type
+
+    /** Primary objective amount for single-objective summary if needed */
+    val objectiveAmount: Int get() = objectives.firstOrNull()?.target ?: 0
+
+    /**
+     * Secondary constructor supporting String difficulty for backward-compatibility.
+     */
+    constructor(
+        levelNumber: Int,
+        rows: Int = DEFAULT_ROWS,
+        columns: Int = DEFAULT_COLUMNS,
+        startingMoves: Int = DEFAULT_MOVES,
+        objectives: List<LevelObjective> = emptyList(),
+        targetScore: Int? = null,
+        difficulty: String,
+        unlocked: Boolean = true
+    ) : this(
+        levelNumber = levelNumber,
+        rows = rows,
+        columns = columns,
+        startingMoves = startingMoves,
+        objectives = objectives,
+        targetScore = targetScore,
+        difficulty = LevelDifficulty.fromString(difficulty),
+        unlocked = unlocked
+    )
+
     /**
      * Validates whether this level configuration complies with all safety and gameplay constraints.
      * Returns true if valid, false if any parameter is malformed or invalid.
@@ -36,10 +78,14 @@ data class LevelConfig(
                         return false
                     }
                 }
-                ObjectiveType.TARGET_SCORE -> {
+                ObjectiveType.TARGET_SCORE,
+                ObjectiveType.SCORE_TARGET -> {
                     if (objective.target <= 0) return false
                 }
                 ObjectiveType.MAKE_MATCHES -> {
+                    if (objective.target <= 0) return false
+                }
+                ObjectiveType.CLEAR_BLOCKERS -> {
                     if (objective.target <= 0) return false
                 }
             }
