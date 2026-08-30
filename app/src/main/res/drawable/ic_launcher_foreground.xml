@@ -3,7 +3,7 @@
     <item
         android:width="66dp"
         android:height="66dp"
-        android:drawable="@drawable/ic_puzzle_master"
+        android:drawable="@drawable/ic_candy_crush_lite"
         android:gravity="center" />
 </layer-list>
 

@@ -425,7 +425,7 @@ class Match3ViewModel : ViewModel() {
                         cascadeChainCount = 1,
                         activeComboType = comboType,
                         comboPositions = specialStep.matchedPositions,
-                        floatingScoreEvents = it.floatingScoreEvents + floatingEvent,
+                        floatingScoreEvents = (it.floatingScoreEvents + floatingEvent).takeLast(10),
                         isBoardImpact = true
                     )
                 }
@@ -500,7 +500,7 @@ class Match3ViewModel : ViewModel() {
                         matchingPositions = step.matchedPositions,
                         matchIntensity = maxMatchLength,
                         cascadeChainCount = chainCount,
-                        floatingScoreEvents = it.floatingScoreEvents + floatingEvent,
+                        floatingScoreEvents = (it.floatingScoreEvents + floatingEvent).takeLast(10),
                         isBoardImpact = (step.matchedPositions.size >= 6 || chainCount >= 2)
                     )
                 }

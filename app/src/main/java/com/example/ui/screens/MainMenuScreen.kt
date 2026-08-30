@@ -34,11 +34,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.R
 import com.example.ui.theme.PuzzleMasterTheme
 
 @Composable
@@ -73,7 +75,7 @@ fun MainMenuScreen(
             ) {
                 Icon(
                     imageVector = Icons.Default.Extension,
-                    contentDescription = "Puzzle Master Icon",
+                    contentDescription = "Candy Crush Lite Icon",
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(52.dp)
                 )
@@ -83,7 +85,7 @@ fun MainMenuScreen(
 
             // Game Title
             Text(
-                text = "Puzzle Master",
+                text = stringResource(R.string.app_name),
                 style = MaterialTheme.typography.headlineLarge,
                 color = MaterialTheme.colorScheme.onBackground,
                 fontWeight = FontWeight.Bold,

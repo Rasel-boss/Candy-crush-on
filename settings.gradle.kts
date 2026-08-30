@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "Puzzle Master"
+rootProject.name = "Candy Crush Lite"
 
 include(":app")

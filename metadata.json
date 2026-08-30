@@ -1,6 +1,6 @@
 {
-  "name": "Puzzle Master",
-  "description": "A modern Android puzzle game featuring classic and innovative puzzle challenges.",
+  "name": "Candy Crush Lite",
+  "description": "A modern Match-3 puzzle game featuring classic mechanics, special candy combinations, and engaging campaign levels.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
