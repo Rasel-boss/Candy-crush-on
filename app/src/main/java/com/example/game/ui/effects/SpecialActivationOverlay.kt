@@ -34,13 +34,13 @@ fun SpecialActivationOverlay(
 ) {
     if (matchingPositions.isEmpty()) return
 
-    // Detect if this match corresponds to a full row, full column, 3x3 blast, or large clear
+    // Detect if this match corresponds to full rows, full columns, or area shockwaves
     val rowsRepresented = matchingPositions.groupBy { it.row }
     val colsRepresented = matchingPositions.groupBy { it.column }
 
     val fullRows = rowsRepresented.filter { it.value.size >= boardCols }.keys
     val fullCols = colsRepresented.filter { it.value.size >= boardRows }.keys
-    val isAreaBlast = matchingPositions.size in 7..10 && fullRows.isEmpty() && fullCols.isEmpty()
+    val isAreaBlast = matchingPositions.size >= 4 && (fullRows.size < boardRows && fullCols.size < boardCols)
 
     if (fullRows.isEmpty() && fullCols.isEmpty() && !isAreaBlast) return
 
@@ -129,7 +129,7 @@ fun SpecialActivationOverlay(
             val centerR = matchingPositions.map { it.row }.average().toFloat()
             val centerC = matchingPositions.map { it.column }.average().toFloat()
             val center = Offset((centerC + 0.5f) * tileW, (centerR + 0.5f) * tileH)
-            val maxRadius = tileW * 2.2f
+            val maxRadius = if (matchingPositions.size >= 16) tileW * 3.5f else tileW * 2.2f
             val currentRadius = maxRadius * progress
 
             // Radial energy aura

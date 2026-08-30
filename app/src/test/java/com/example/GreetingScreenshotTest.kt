@@ -2,10 +2,13 @@ package com.example
 
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
+import androidx.test.core.app.ApplicationProvider
+import com.example.game.logic.LevelProgressionManager
 import com.example.ui.screens.MainMenuScreen
 import com.example.ui.theme.PuzzleMasterTheme
 import com.github.takahirom.roborazzi.RobolectricDeviceQualifiers
 import com.github.takahirom.roborazzi.captureRoboImage
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -19,6 +22,11 @@ import org.robolectric.annotation.GraphicsMode
 class GreetingScreenshotTest {
 
   @get:Rule val composeTestRule = createComposeRule()
+
+  @Before
+  fun setUp() {
+    LevelProgressionManager.init(ApplicationProvider.getApplicationContext())
+  }
 
   @Test
   fun greeting_screenshot() {

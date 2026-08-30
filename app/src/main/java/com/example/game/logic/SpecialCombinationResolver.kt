@@ -52,28 +52,28 @@ object SpecialCombinationResolver {
         if (typeA == SpecialCandyType.COLOR_BOMB || typeB == SpecialCandyType.COLOR_BOMB) {
             val otherTile = if (typeA == SpecialCandyType.COLOR_BOMB) tileB else tileA
             return when {
-                otherTile.specialCandyType.isStriped -> SpecialCombinationType.COLOR_BOMB_STRIPED
                 otherTile.specialCandyType == SpecialCandyType.WRAPPED -> SpecialCombinationType.COLOR_BOMB_WRAPPED
+                otherTile.specialCandyType.isStriped -> SpecialCombinationType.COLOR_BOMB_STRIPED
                 otherTile.type.isPlayable && otherTile.type != CandyType.EMPTY -> SpecialCombinationType.COLOR_BOMB_NORMAL
                 else -> SpecialCombinationType.NONE
             }
         }
 
-        // 3. Striped + Striped
-        if (typeA.isStriped && typeB.isStriped) {
-            return SpecialCombinationType.STRIPED_STRIPED
-        }
-
-        // 4. Wrapped + Wrapped
+        // 3. Wrapped + Wrapped
         if (typeA == SpecialCandyType.WRAPPED && typeB == SpecialCandyType.WRAPPED) {
             return SpecialCombinationType.WRAPPED_WRAPPED
         }
 
-        // 5. Striped + Wrapped (either order)
+        // 4. Striped + Wrapped (either order)
         if ((typeA.isStriped && typeB == SpecialCandyType.WRAPPED) ||
             (typeB.isStriped && typeA == SpecialCandyType.WRAPPED)
         ) {
             return SpecialCombinationType.STRIPED_WRAPPED
+        }
+
+        // 5. Striped + Striped
+        if (typeA.isStriped && typeB.isStriped) {
+            return SpecialCombinationType.STRIPED_STRIPED
         }
 
         return SpecialCombinationType.NONE
