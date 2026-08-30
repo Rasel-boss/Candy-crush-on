@@ -473,7 +473,7 @@ class SpecialCandyCombinationsPrompt16Test {
     @Test
     fun `24 - Board becomes stable after resolution`() {
         viewModel.startGame(level = 1)
-        var board = createFilledBoard(CandyType.BLUE)
+        var board = BoardGenerator.generateBoard(8, 8, Random(42))
         board = board.withTile(CandyTile(100L, CandyType.RED, 3, 3, SpecialCandyType.HORIZONTAL_STRIPED))
         board = board.withTile(CandyTile(101L, CandyType.GREEN, 3, 4, SpecialCandyType.WRAPPED))
         viewModel.setCustomBoard(board)
