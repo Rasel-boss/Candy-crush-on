@@ -83,9 +83,23 @@ fun CandyCanvasArtwork(
         val cy = h / 2f
         val r = min(w, h) * 0.40f
 
-        // Draw Selection Halo Aura & Electric Rim Shimmer if selected
+        // Draw Selection Halo Aura, Luminous Contour, & Electric Rim Shimmer if selected
         if (isSelected) {
+            val candyPath = getCandyPath(candyType, cx, cy, r)
             drawSelectionHalo(cx, cy, r * selectionPulse)
+            if (candyType != CandyType.EMPTY) {
+                // Golden-white double glow outline matching exact candy silhouette
+                drawPath(
+                    path = candyPath,
+                    color = Color(0xFFFDE047).copy(alpha = 0.95f),
+                    style = Stroke(width = r * 0.14f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+                )
+                drawPath(
+                    path = candyPath,
+                    color = Color.White,
+                    style = Stroke(width = r * 0.06f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+                )
+            }
             drawSelectedElectricShimmer(cx, cy, r, shimmerPhase)
         }
 

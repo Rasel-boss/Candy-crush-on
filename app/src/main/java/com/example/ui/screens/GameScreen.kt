@@ -5,7 +5,6 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -20,8 +19,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -36,15 +33,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material.icons.filled.EmojiEvents
-import androidx.compose.material.icons.filled.FlashOn
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Stars
 import androidx.compose.material.icons.filled.TouchApp
@@ -64,7 +55,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -73,7 +63,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -90,19 +79,19 @@ import com.example.game.ui.components.Match3BoardView
 import com.example.game.ui.components.ObjectivePanel
 import com.example.game.ui.components.PauseOverlay
 import com.example.game.ui.components.VictoryDialog
+import com.example.game.utils.ScoreCalculator
 import com.example.game.viewmodel.Match3ViewModel
 import com.example.ui.theme.PuzzleMasterTheme
 import kotlin.math.PI
-import kotlin.math.cos
 import kotlin.math.sin
 
 /**
- * Primary Game Screen for the Match-3 Puzzle Master game.
+ * Primary Game Screen for the Match-3 Candy Crush Lite game.
  *
  * Full-height responsive layout featuring:
  * - Edge-to-edge ambient cosmic game backdrop with subtle ambient starfield
  * - Translucent elevated top header with level indicator and game controls
- * - Dynamic HUD stat cards (Score, Moves, Target Progress)
+ * - Dynamic HUD stat cards (Level, Score, Moves, Target Progress)
  * - Scaled square 8x8 Match-3 board container with zero distortion
  * - Live particle system, floating scores, cascade indicators, and impact feedback
  * - Pause, Victory, and Game Over overlays
@@ -214,10 +203,10 @@ fun GameScreenContent(
     ) {
         val screenWidth = maxWidth
         val screenHeight = maxHeight
-        val isCompactHeight = screenHeight < 640.dp
+        val isCompactHeight = screenHeight < 680.dp
         val isTabletWidth = screenWidth > 600.dp
 
-        // 1. Full-bleed cosmic game background with subtle ambient star particles
+        // 1. Full-bleed deep indigo/purple game background with ambient star shimmer
         GameCosmicBackground(modifier = Modifier.fillMaxSize())
 
         // 2. Responsive Content Container with Safe Insets
@@ -233,30 +222,40 @@ fun GameScreenContent(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Top Bar Header
-            GameTopHeader(
-                level = gameState.level,
-                onBackClick = onBackClick,
-                onRestartClick = onRestartClick,
-                onPauseClick = onPauseClick
-            )
-
-            // Top HUD (Score, Moves, Star Progress)
-            GameHudSection(
-                score = gameState.score,
-                movesRemaining = gameState.movesRemaining,
-                targetScore = gameState.levelConfig.targetScore ?: 1000,
-                isCompact = isCompactHeight
-            )
-
-            // Objectives Panel displaying active goals and live progress
-            ObjectivePanel(
-                objectives = gameState.objectives,
-                isCompact = isCompactHeight,
+            // Top Section: Header & Top HUD
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .widthIn(max = 520.dp)
-            )
+                    .widthIn(max = 520.dp),
+                verticalArrangement = Arrangement.spacedBy(if (isCompactHeight) 4.dp else 6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Top Bar Header: Back, Level Badge, Restart, Pause
+                GameTopHeader(
+                    level = gameState.level,
+                    onBackClick = onBackClick,
+                    onRestartClick = onRestartClick,
+                    onPauseClick = onPauseClick,
+                    isCompact = isCompactHeight
+                )
+
+                // Top HUD: Score & Moves Cards + Target Progress Meter
+                GameHudSection(
+                    score = gameState.score,
+                    movesRemaining = gameState.movesRemaining,
+                    targetScore = gameState.levelConfig.targetScore ?: 1000,
+                    isCompact = isCompactHeight
+                )
+
+                // Objectives Panel: Live progress towards level goals
+                if (gameState.objectives.isNotEmpty()) {
+                    ObjectivePanel(
+                        objectives = gameState.objectives,
+                        isCompact = isCompactHeight,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
 
             // Flexible Game Board Area with dynamically balanced square sizing
             val boardEntranceAlpha = remember { Animatable(0f) }
@@ -270,7 +269,7 @@ fun GameScreenContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .padding(vertical = if (isCompactHeight) 2.dp else 4.dp)
+                    .padding(vertical = if (isCompactHeight) 2.dp else 6.dp)
                     .graphicsLayer {
                         alpha = boardEntranceAlpha.value
                         scaleX = boardEntranceScale.value
@@ -278,7 +277,7 @@ fun GameScreenContent(
                     },
                 contentAlignment = Alignment.Center
             ) {
-                val maxAllowedWidth = if (isTabletWidth) maxWidth - 48.dp else maxWidth - 8.dp
+                val maxAllowedWidth = if (isTabletWidth) maxWidth - 48.dp else maxWidth - 4.dp
                 val boardSize = minOf(maxAllowedWidth, maxHeight).coerceIn(200.dp, 500.dp)
 
                 Match3BoardView(
@@ -297,11 +296,6 @@ fun GameScreenContent(
                     isBoardImpact = gameState.isBoardImpact
                 )
             }
-
-            // Bottom Intentional Area: Decorative Booster Placeholders
-            GameBottomSection(
-                isCompact = isCompactHeight
-            )
         }
 
         // 3. Pause Overlay
@@ -363,10 +357,10 @@ private fun GameCosmicBackground(modifier: Modifier = Modifier) {
         drawRect(
             brush = Brush.verticalGradient(
                 colors = listOf(
-                    Color(0xFF0F0C20), // Deep space top
-                    Color(0xFF181336), // Deep indigo mid
+                    Color(0xFF0D0A1C), // Deep midnight violet top
+                    Color(0xFF161132), // Indigo plum
                     Color(0xFF1E1B4B), // Rich indigo center
-                    Color(0xFF110E27)  // Obsidian violet base
+                    Color(0xFF0F0C24)  // Obsidian base
                 ),
                 startY = 0f,
                 endY = h
@@ -376,7 +370,7 @@ private fun GameCosmicBackground(modifier: Modifier = Modifier) {
         // Soft ambient radial colored glows
         drawCircle(
             brush = Brush.radialGradient(
-                colors = listOf(Color(0xFF6366F1).copy(alpha = 0.12f), Color.Transparent),
+                colors = listOf(Color(0xFF6366F1).copy(alpha = 0.14f), Color.Transparent),
                 center = Offset(w * 0.8f, h * 0.18f),
                 radius = w * 0.65f
             ),
@@ -386,7 +380,7 @@ private fun GameCosmicBackground(modifier: Modifier = Modifier) {
 
         drawCircle(
             brush = Brush.radialGradient(
-                colors = listOf(Color(0xFFEC4899).copy(alpha = 0.08f), Color.Transparent),
+                colors = listOf(Color(0xFFEC4899).copy(alpha = 0.09f), Color.Transparent),
                 center = Offset(w * 0.2f, h * 0.82f),
                 radius = w * 0.70f
             ),
@@ -438,47 +432,58 @@ private fun GameTopHeader(
     level: Int,
     onBackClick: () -> Unit,
     onRestartClick: () -> Unit,
-    onPauseClick: () -> Unit
+    onPauseClick: () -> Unit,
+    isCompact: Boolean = false
 ) {
     Surface(
         shape = RoundedCornerShape(20.dp),
-        color = Color(0xFF1E1B4B).copy(alpha = 0.75f),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF4338CA).copy(alpha = 0.4f)),
+        color = Color(0xFF1E1B4B).copy(alpha = 0.82f),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF4338CA).copy(alpha = 0.5f)),
+        shadowElevation = 6.dp,
         modifier = Modifier
             .fillMaxWidth()
-            .widthIn(max = 520.dp)
-            .padding(horizontal = 4.dp, vertical = 2.dp)
+            .padding(horizontal = 2.dp, vertical = 2.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp),
+                .padding(
+                    horizontal = 8.dp,
+                    vertical = if (isCompact) 2.dp else 4.dp
+                ),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Back Button
+            // Back Button (Accessible >= 48dp touch target)
             IconButton(
                 onClick = onBackClick,
-                modifier = Modifier.testTag("game_back_button")
+                modifier = Modifier
+                    .size(48.dp)
+                    .testTag("game_back_button")
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back to Menu",
-                    tint = Color(0xFFE2E8F0)
+                    tint = Color(0xFFE2E8F0),
+                    modifier = Modifier.size(24.dp)
                 )
             }
 
-            // Level Badge
+            // Level Badge Pill
             Surface(
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(14.dp),
                 color = Color(0xFF4F46E5),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF818CF8).copy(alpha = 0.6f)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF818CF8).copy(alpha = 0.7f)),
+                shadowElevation = 4.dp,
                 modifier = Modifier.testTag("level_badge")
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                    modifier = Modifier.padding(
+                        horizontal = if (isCompact) 12.dp else 16.dp,
+                        vertical = if (isCompact) 5.dp else 7.dp
+                    )
                 ) {
                     Icon(
                         imageVector = Icons.Default.Star,
@@ -490,37 +495,43 @@ private fun GameTopHeader(
                         text = "Level $level",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Black,
-                        letterSpacing = 0.5.sp,
+                        letterSpacing = 0.8.sp,
                         color = Color.White,
                         modifier = Modifier.testTag("level_indicator")
                     )
                 }
             }
 
-            // Quick Actions: Restart & Pause
+            // Quick Actions: Restart & Pause (Accessible >= 48dp touch targets)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 IconButton(
                     onClick = onRestartClick,
-                    modifier = Modifier.testTag("restart_button")
+                    modifier = Modifier
+                        .size(48.dp)
+                        .testTag("restart_button")
                 ) {
                     Icon(
                         imageVector = Icons.Default.Refresh,
                         contentDescription = "Restart Level",
-                        tint = Color(0xFFE2E8F0)
+                        tint = Color(0xFFE2E8F0),
+                        modifier = Modifier.size(22.dp)
                     )
                 }
 
                 IconButton(
                     onClick = onPauseClick,
-                    modifier = Modifier.testTag("pause_button")
+                    modifier = Modifier
+                        .size(48.dp)
+                        .testTag("pause_button")
                 ) {
                     Icon(
                         imageVector = Icons.Default.Pause,
                         contentDescription = "Pause Game",
-                        tint = Color(0xFFE2E8F0)
+                        tint = Color(0xFFE2E8F0),
+                        modifier = Modifier.size(22.dp)
                     )
                 }
             }
@@ -547,19 +558,18 @@ private fun GameHudSection(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .widthIn(max = 520.dp)
-            .padding(horizontal = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(if (isCompact) 4.dp else 8.dp)
+            .padding(horizontal = 2.dp),
+        verticalArrangement = Arrangement.spacedBy(if (isCompact) 3.dp else 5.dp)
     ) {
-        // Score & Moves Cards
+        // Score & Moves Cards Row
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // Score Card
             StatBadgeCard(
                 title = "SCORE",
-                value = "$animatedScore",
+                value = ScoreCalculator.formatScore(animatedScore),
                 icon = Icons.Default.Stars,
                 accentColor = Color(0xFFF59E0B),
                 modifier = Modifier
@@ -588,30 +598,33 @@ private fun GameHudSection(
         // Score Target Progress Indicator
         Surface(
             shape = RoundedCornerShape(12.dp),
-            color = Color(0xFF1E1B4B).copy(alpha = 0.6f),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF3730A3).copy(alpha = 0.3f)),
+            color = Color(0xFF1E1B4B).copy(alpha = 0.65f),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF3730A3).copy(alpha = 0.4f)),
             modifier = Modifier.fillMaxWidth()
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = if (isCompact) 4.dp else 6.dp),
+                    .padding(
+                        horizontal = 12.dp,
+                        vertical = if (isCompact) 3.dp else 5.dp
+                    ),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.EmojiEvents,
                     contentDescription = null,
                     tint = Color(0xFFFDE047),
-                    modifier = Modifier.size(if (isCompact) 15.dp else 18.dp)
+                    modifier = Modifier.size(if (isCompact) 14.dp else 16.dp)
                 )
 
-                val progress = (score.toFloat() / targetScore.toFloat()).coerceIn(0f, 1f)
+                val progress = if (targetScore > 0) (score.toFloat() / targetScore.toFloat()).coerceIn(0f, 1f) else 0f
                 LinearProgressIndicator(
                     progress = { progress },
                     modifier = Modifier
                         .weight(1f)
-                        .height(if (isCompact) 6.dp else 8.dp)
+                        .height(if (isCompact) 6.dp else 7.dp)
                         .clip(RoundedCornerShape(4.dp)),
                     color = Color(0xFFF59E0B),
                     trackColor = Color(0xFF312E81),
@@ -643,11 +656,11 @@ private fun StatBadgeCard(
     isCompact: Boolean = false,
     isWarning: Boolean = false
 ) {
-    val borderColor = if (isWarning) Color(0xFFEF4444).copy(alpha = 0.7f) else Color(0xFF4338CA).copy(alpha = 0.45f)
-    val cardBg = if (isWarning) Color(0xFF2D1225).copy(alpha = 0.85f) else Color(0xFF1E1B4B).copy(alpha = 0.85f)
+    val borderColor = if (isWarning) Color(0xFFEF4444).copy(alpha = 0.8f) else Color(0xFF4338CA).copy(alpha = 0.5f)
+    val cardBg = if (isWarning) Color(0xFF2E1020).copy(alpha = 0.9f) else Color(0xFF1E1B4B).copy(alpha = 0.85f)
 
     Surface(
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(16.dp),
         color = cardBg,
         border = androidx.compose.foundation.BorderStroke(1.dp, borderColor),
         shadowElevation = 4.dp,
@@ -657,19 +670,19 @@ private fun StatBadgeCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(
-                    horizontal = 12.dp,
-                    vertical = if (isCompact) 6.dp else 8.dp
+                    horizontal = 10.dp,
+                    vertical = if (isCompact) 5.dp else 7.dp
                 ),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Box(
                     modifier = Modifier
-                        .size(if (isCompact) 28.dp else 34.dp)
+                        .size(if (isCompact) 26.dp else 30.dp)
                         .clip(CircleShape)
                         .background(accentColor.copy(alpha = 0.20f)),
                     contentAlignment = Alignment.Center
@@ -678,7 +691,7 @@ private fun StatBadgeCard(
                         imageVector = icon,
                         contentDescription = null,
                         tint = accentColor,
-                        modifier = Modifier.size(if (isCompact) 16.dp else 20.dp)
+                        modifier = Modifier.size(if (isCompact) 14.dp else 18.dp)
                     )
                 }
                 Text(
@@ -711,98 +724,6 @@ private fun StatBadgeCard(
     }
 }
 
-/**
- * Bottom game area featuring decorative booster placeholders.
- */
-@Composable
-private fun GameBottomSection(
-    isCompact: Boolean = false
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .widthIn(max = 520.dp)
-            .padding(horizontal = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(if (isCompact) 4.dp else 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        // 3 Decorative Booster Placeholders (Visual UI only, no fake action triggers)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            BoosterPlaceholderCard(
-                name = "Hammer",
-                icon = Icons.Default.FlashOn,
-                accentColor = Color(0xFFF59E0B),
-                modifier = Modifier.weight(1f)
-            )
-            BoosterPlaceholderCard(
-                name = "Shuffle",
-                icon = Icons.Default.Shuffle,
-                accentColor = Color(0xFF38BDF8),
-                modifier = Modifier.weight(1f)
-            )
-            BoosterPlaceholderCard(
-                name = "Magic",
-                icon = Icons.Default.AutoAwesome,
-                accentColor = Color(0xFFA855F7),
-                modifier = Modifier.weight(1f)
-            )
-        }
-    }
-}
-
-/**
- * Purely decorative booster placeholder slot displaying locked/unlocked visual state.
- */
-@Composable
-private fun BoosterPlaceholderCard(
-    name: String,
-    icon: ImageVector,
-    accentColor: Color,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        shape = RoundedCornerShape(14.dp),
-        color = Color(0xFF131131).copy(alpha = 0.65f),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF312E81).copy(alpha = 0.4f)),
-        modifier = modifier
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(24.dp)
-                    .clip(CircleShape)
-                    .background(accentColor.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = accentColor.copy(alpha = 0.8f),
-                    modifier = Modifier.size(14.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(6.dp))
-
-            Text(
-                text = name,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF94A3B8)
-            )
-        }
-    }
-}
-
 @Preview(name = "Game Screen Preview", showBackground = true)
 @Composable
 fun GameScreenPreview() {
@@ -817,3 +738,4 @@ fun GameScreenPreview() {
         )
     }
 }
+

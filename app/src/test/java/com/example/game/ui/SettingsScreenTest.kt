@@ -40,14 +40,20 @@ class SettingsScreenTest {
 
         composeTestRule.onNodeWithTag("settings_screen").assertIsDisplayed()
         composeTestRule.onNodeWithTag("settings_screen_title").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("sound_setting_item").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("sound_switch").assertIsDisplayed()
+
+        composeTestRule.onNodeWithTag("sound_setting_item").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithTag("sound_switch").performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithTag("sound_switch").assertIsOn()
 
-        composeTestRule.onNodeWithTag("vibration_setting_item").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("vibration_switch").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("music_setting_item").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithTag("music_switch").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithTag("music_switch").assertIsOn()
+
+        composeTestRule.onNodeWithTag("vibration_setting_item").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithTag("vibration_switch").performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithTag("vibration_switch").assertIsOn()
 
+        composeTestRule.onNodeWithTag("reset_settings_button").performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithTag("settings_back_button").performScrollTo().assertIsDisplayed()
     }
 
@@ -67,14 +73,40 @@ class SettingsScreenTest {
         assertTrue(viewModel.settingsState.value.soundEnabled)
 
         // Toggle Sound Off
-        composeTestRule.onNodeWithTag("sound_switch").performClick()
+        composeTestRule.onNodeWithTag("sound_switch").performScrollTo().performClick()
         assertFalse(viewModel.settingsState.value.soundEnabled)
         composeTestRule.onNodeWithTag("sound_switch").assertIsOff()
 
         // Toggle Sound On
-        composeTestRule.onNodeWithTag("sound_switch").performClick()
+        composeTestRule.onNodeWithTag("sound_switch").performScrollTo().performClick()
         assertTrue(viewModel.settingsState.value.soundEnabled)
         composeTestRule.onNodeWithTag("sound_switch").assertIsOn()
+    }
+
+    @Test
+    fun settingsScreen_toggleMusicSwitch_updatesMusicSetting() {
+        val viewModel = SettingsViewModel()
+
+        composeTestRule.setContent {
+            PuzzleMasterTheme {
+                SettingsScreen(
+                    settingsViewModel = viewModel,
+                    onBackClick = {}
+                )
+            }
+        }
+
+        assertTrue(viewModel.settingsState.value.musicEnabled)
+
+        // Toggle Music Off
+        composeTestRule.onNodeWithTag("music_switch").performScrollTo().performClick()
+        assertFalse(viewModel.settingsState.value.musicEnabled)
+        composeTestRule.onNodeWithTag("music_switch").assertIsOff()
+
+        // Toggle Music On
+        composeTestRule.onNodeWithTag("music_switch").performScrollTo().performClick()
+        assertTrue(viewModel.settingsState.value.musicEnabled)
+        composeTestRule.onNodeWithTag("music_switch").assertIsOn()
     }
 
     @Test
@@ -93,31 +125,61 @@ class SettingsScreenTest {
         assertTrue(viewModel.settingsState.value.vibrationEnabled)
 
         // Toggle Vibration Off
-        composeTestRule.onNodeWithTag("vibration_switch").performClick()
+        composeTestRule.onNodeWithTag("vibration_switch").performScrollTo().performClick()
         assertFalse(viewModel.settingsState.value.vibrationEnabled)
         composeTestRule.onNodeWithTag("vibration_switch").assertIsOff()
 
         // Toggle Vibration On
-        composeTestRule.onNodeWithTag("vibration_switch").performClick()
+        composeTestRule.onNodeWithTag("vibration_switch").performScrollTo().performClick()
         assertTrue(viewModel.settingsState.value.vibrationEnabled)
         composeTestRule.onNodeWithTag("vibration_switch").assertIsOn()
     }
 
     @Test
-    fun settingsScreen_backButton_triggersCallback() {
-        var backClicked = false
+    fun settingsScreen_resetPreferencesButton_restoresDefaults() {
+        val viewModel = SettingsViewModel()
+        viewModel.setSoundEnabled(false)
+        viewModel.setMusicEnabled(false)
+        viewModel.setVibrationEnabled(false)
+
+        assertFalse(viewModel.settingsState.value.soundEnabled)
+        assertFalse(viewModel.settingsState.value.musicEnabled)
+        assertFalse(viewModel.settingsState.value.vibrationEnabled)
+
+        composeTestRule.setContent {
+            PuzzleMasterTheme {
+                SettingsScreen(
+                    settingsViewModel = viewModel,
+                    onBackClick = {}
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithTag("reset_settings_button").performScrollTo().performClick()
+
+        assertTrue(viewModel.settingsState.value.soundEnabled)
+        assertTrue(viewModel.settingsState.value.musicEnabled)
+        assertTrue(viewModel.settingsState.value.vibrationEnabled)
+    }
+
+    @Test
+    fun settingsScreen_backButtons_triggerCallback() {
+        var backCount = 0
         val viewModel = SettingsViewModel()
 
         composeTestRule.setContent {
             PuzzleMasterTheme {
                 SettingsScreen(
                     settingsViewModel = viewModel,
-                    onBackClick = { backClicked = true }
+                    onBackClick = { backCount++ }
                 )
             }
         }
 
         composeTestRule.onNodeWithTag("back_button").performClick()
-        assertTrue(backClicked)
+        assertTrue(backCount == 1)
+
+        composeTestRule.onNodeWithTag("settings_back_button").performScrollTo().performClick()
+        assertTrue(backCount == 2)
     }
 }

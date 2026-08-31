@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.game.logic.LevelProgressionManager
 import com.example.game.viewmodel.Match3ViewModel
+import com.example.game.viewmodel.SettingsViewModel
 import com.example.ui.navigation.PuzzleNavHost
 import com.example.ui.theme.PuzzleMasterTheme
 
@@ -17,6 +18,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         LevelProgressionManager.init(this)
+        SettingsViewModel.init(this)
         enableEdgeToEdge()
         setContent {
             PuzzleMasterTheme {
