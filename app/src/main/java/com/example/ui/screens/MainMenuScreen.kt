@@ -174,7 +174,7 @@ fun MainMenuScreen(
                 Image(
                     painter = painterResource(id = R.drawable.ic_candy_crush_lite),
                     contentDescription = "Candy Crush Lite Logo",
-                    contentScale = ContentScale.Crop,
+                    contentScale = ContentScale.Fit,
                     modifier = Modifier
                         .size(96.dp)
                         .clip(CircleShape)
