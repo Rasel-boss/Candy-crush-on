@@ -171,13 +171,15 @@ fun Match3BoardView(
         // Board Impact Subtle Flash
         if (isBoardImpact || cascadeChainCount >= 2) {
             Canvas(modifier = Modifier.fillMaxSize()) {
-                drawRect(
-                    brush = Brush.radialGradient(
-                        colors = listOf(Color(0xFF6366F1).copy(alpha = 0.15f), Color.Transparent),
-                        center = Offset(size.width / 2f, size.height / 2f),
-                        radius = size.minDimension * 0.7f
+                if (size.minDimension > 0.5f) {
+                    drawRect(
+                        brush = Brush.radialGradient(
+                            colors = listOf(Color(0xFF6366F1).copy(alpha = 0.15f), Color.Transparent),
+                            center = Offset(size.width / 2f, size.height / 2f),
+                            radius = size.minDimension * 0.7f
+                        )
                     )
-                )
+                }
             }
         }
 
@@ -333,18 +335,20 @@ fun ComboEffectOverlay(
     ) {
         // Decorative energy radial glow
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val center = Offset(size.width / 2f, size.height / 2f)
-            val radius = (size.minDimension / 2f) * 1.1f
+            if (size.minDimension > 0.5f) {
+                val center = Offset(size.width / 2f, size.height / 2f)
+                val radius = (size.minDimension / 2f) * 1.1f
 
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(comboColor.copy(alpha = 0.4f), Color.Transparent),
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(comboColor.copy(alpha = 0.4f), Color.Transparent),
+                        center = center,
+                        radius = radius
+                    ),
                     center = center,
                     radius = radius
-                ),
-                center = center,
-                radius = radius
-            )
+                )
+            }
         }
 
         // Combo Announcement Banner

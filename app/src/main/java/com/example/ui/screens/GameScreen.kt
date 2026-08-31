@@ -368,25 +368,27 @@ private fun GameCosmicBackground(modifier: Modifier = Modifier) {
         )
 
         // Soft ambient radial colored glows
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(Color(0xFF6366F1).copy(alpha = 0.14f), Color.Transparent),
-                center = Offset(w * 0.8f, h * 0.18f),
-                radius = w * 0.65f
-            ),
-            radius = w * 0.65f,
-            center = Offset(w * 0.8f, h * 0.18f)
-        )
+        if (w > 0.5f && h > 0.5f) {
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color(0xFF6366F1).copy(alpha = 0.14f), Color.Transparent),
+                    center = Offset(w * 0.8f, h * 0.18f),
+                    radius = w * 0.65f
+                ),
+                radius = w * 0.65f,
+                center = Offset(w * 0.8f, h * 0.18f)
+            )
 
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(Color(0xFFEC4899).copy(alpha = 0.09f), Color.Transparent),
-                center = Offset(w * 0.2f, h * 0.82f),
-                radius = w * 0.70f
-            ),
-            radius = w * 0.70f,
-            center = Offset(w * 0.2f, h * 0.82f)
-        )
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color(0xFFEC4899).copy(alpha = 0.09f), Color.Transparent),
+                    center = Offset(w * 0.2f, h * 0.82f),
+                    radius = w * 0.70f
+                ),
+                radius = w * 0.70f,
+                center = Offset(w * 0.2f, h * 0.82f)
+            )
+        }
 
         // Deterministic ambient starfield
         val starSeeds = listOf(

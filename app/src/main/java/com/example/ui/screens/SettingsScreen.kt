@@ -178,37 +178,39 @@ fun SettingsScreenContent(
                 .padding(innerPadding)
                 .background(backgroundBrush)
                 .drawBehind {
-                    // Ambient radial glow effects matching Candy Crush Lite atmosphere
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                Color(0xFF8B5CF6).copy(alpha = 0.16f * glowAlpha),
-                                Color.Transparent
-                            ),
-                            center = Offset(size.width * 0.5f, size.height * 0.15f),
-                            radius = size.width * 0.65f
+                    if (size.width > 0.5f) {
+                        // Ambient radial glow effects matching Candy Crush Lite atmosphere
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    Color(0xFF8B5CF6).copy(alpha = 0.16f * glowAlpha),
+                                    Color.Transparent
+                                ),
+                                center = Offset(size.width * 0.5f, size.height * 0.15f),
+                                radius = size.width * 0.65f
+                            )
                         )
-                    )
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                Color(0xFFEC4899).copy(alpha = 0.10f * glowAlpha),
-                                Color.Transparent
-                            ),
-                            center = Offset(size.width * 0.85f, size.height * 0.65f),
-                            radius = size.width * 0.5f
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    Color(0xFFEC4899).copy(alpha = 0.10f * glowAlpha),
+                                    Color.Transparent
+                                ),
+                                center = Offset(size.width * 0.85f, size.height * 0.65f),
+                                radius = size.width * 0.5f
+                            )
                         )
-                    )
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                Color(0xFF06B6D4).copy(alpha = 0.08f * glowAlpha),
-                                Color.Transparent
-                            ),
-                            center = Offset(size.width * 0.15f, size.height * 0.80f),
-                            radius = size.width * 0.45f
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    Color(0xFF06B6D4).copy(alpha = 0.08f * glowAlpha),
+                                    Color.Transparent
+                                ),
+                                center = Offset(size.width * 0.15f, size.height * 0.80f),
+                                radius = size.width * 0.45f
+                            )
                         )
-                    )
+                    }
                 },
             contentAlignment = Alignment.TopCenter
         ) {

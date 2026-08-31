@@ -114,37 +114,39 @@ fun MainMenuScreen(
             .fillMaxSize()
             .background(backgroundBrush)
             .drawBehind {
-                // Ambient background glowing orbs
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            Color(0xFF8B5CF6).copy(alpha = 0.18f * glowAlpha),
-                            Color.Transparent
-                        ),
-                        center = Offset(size.width * 0.5f, size.height * 0.22f),
-                        radius = size.width * 0.65f
+                if (size.width > 0.5f) {
+                    // Ambient background glowing orbs
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                Color(0xFF8B5CF6).copy(alpha = 0.18f * glowAlpha),
+                                Color.Transparent
+                            ),
+                            center = Offset(size.width * 0.5f, size.height * 0.22f),
+                            radius = size.width * 0.65f
+                        )
                     )
-                )
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            Color(0xFF06B6D4).copy(alpha = 0.12f * glowAlpha),
-                            Color.Transparent
-                        ),
-                        center = Offset(size.width * 0.85f, size.height * 0.75f),
-                        radius = size.width * 0.5f
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                Color(0xFF06B6D4).copy(alpha = 0.12f * glowAlpha),
+                                Color.Transparent
+                            ),
+                            center = Offset(size.width * 0.85f, size.height * 0.75f),
+                            radius = size.width * 0.5f
+                        )
                     )
-                )
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            Color(0xFFEC4899).copy(alpha = 0.10f * glowAlpha),
-                            Color.Transparent
-                        ),
-                        center = Offset(size.width * 0.15f, size.height * 0.65f),
-                        radius = size.width * 0.45f
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                Color(0xFFEC4899).copy(alpha = 0.10f * glowAlpha),
+                                Color.Transparent
+                            ),
+                            center = Offset(size.width * 0.15f, size.height * 0.65f),
+                            radius = size.width * 0.45f
+                        )
                     )
-                )
+                }
             }
             .testTag("main_menu_screen"),
         contentAlignment = Alignment.Center

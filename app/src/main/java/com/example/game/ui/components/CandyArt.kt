@@ -82,6 +82,7 @@ fun CandyCanvasArtwork(
         val cx = w / 2f
         val cy = h / 2f
         val r = min(w, h) * 0.40f
+        if (r <= 0.5f) return@Canvas
 
         // Draw Selection Halo Aura, Luminous Contour, & Electric Rim Shimmer if selected
         if (isSelected) {

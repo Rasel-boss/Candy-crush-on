@@ -166,26 +166,28 @@ fun LevelsScreen(
                 .padding(innerPadding)
                 .background(backgroundBrush)
                 .drawBehind {
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                Color(0xFF8B5CF6).copy(alpha = 0.15f * glowAlpha),
-                                Color.Transparent
-                            ),
-                            center = Offset(size.width * 0.5f, size.height * 0.15f),
-                            radius = size.width * 0.6f
+                    if (size.width > 0.5f) {
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    Color(0xFF8B5CF6).copy(alpha = 0.15f * glowAlpha),
+                                    Color.Transparent
+                                ),
+                                center = Offset(size.width * 0.5f, size.height * 0.15f),
+                                radius = size.width * 0.6f
+                            )
                         )
-                    )
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                Color(0xFF06B6D4).copy(alpha = 0.10f * glowAlpha),
-                                Color.Transparent
-                            ),
-                            center = Offset(size.width * 0.9f, size.height * 0.7f),
-                            radius = size.width * 0.5f
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    Color(0xFF06B6D4).copy(alpha = 0.10f * glowAlpha),
+                                    Color.Transparent
+                                ),
+                                center = Offset(size.width * 0.9f, size.height * 0.7f),
+                                radius = size.width * 0.5f
+                            )
                         )
-                    )
+                    }
                 },
             contentAlignment = Alignment.TopCenter
         ) {

@@ -55,15 +55,19 @@ fun SpecialActivationOverlay(
     }
 
     Canvas(modifier = modifier.fillMaxSize()) {
+        if (size.width <= 0.1f || size.height <= 0.1f) return@Canvas
+
         val tileW = size.width / boardCols
         val tileH = size.height / boardRows
+        if (tileW <= 0.1f || tileH <= 0.1f) return@Canvas
+
         val progress = animProgress.value
         val alpha = (1f - progress).coerceIn(0f, 1f)
 
         // 1. Horizontal Striped Laser Sweeps
         for (r in fullRows) {
             val centerY = (r + 0.5f) * tileH
-            val beamHalfHeight = tileH * 0.45f * (1f - progress * 0.5f)
+            val beamHalfHeight = (tileH * 0.45f * (1f - progress * 0.5f)).coerceAtLeast(0.1f)
 
             // Outer cyan glow sweep
             drawRect(
@@ -87,7 +91,7 @@ fun SpecialActivationOverlay(
                 color = Color.White.copy(alpha = alpha),
                 start = Offset(0f, centerY),
                 end = Offset(size.width, centerY),
-                strokeWidth = 4f * (1f - progress * 0.3f),
+                strokeWidth = (4f * (1f - progress * 0.3f)).coerceAtLeast(0.1f),
                 cap = StrokeCap.Round
             )
         }
@@ -95,7 +99,7 @@ fun SpecialActivationOverlay(
         // 2. Vertical Striped Laser Sweeps
         for (c in fullCols) {
             val centerX = (c + 0.5f) * tileW
-            val beamHalfWidth = tileW * 0.45f * (1f - progress * 0.5f)
+            val beamHalfWidth = (tileW * 0.45f * (1f - progress * 0.5f)).coerceAtLeast(0.1f)
 
             // Outer amber/cyan glow sweep
             drawRect(
@@ -119,7 +123,7 @@ fun SpecialActivationOverlay(
                 color = Color.White.copy(alpha = alpha),
                 start = Offset(centerX, 0f),
                 end = Offset(centerX, size.height),
-                strokeWidth = 4f * (1f - progress * 0.3f),
+                strokeWidth = (4f * (1f - progress * 0.3f)).coerceAtLeast(0.1f),
                 cap = StrokeCap.Round
             )
         }
@@ -132,28 +136,30 @@ fun SpecialActivationOverlay(
             val maxRadius = if (matchingPositions.size >= 16) tileW * 3.5f else tileW * 2.2f
             val currentRadius = maxRadius * progress
 
-            // Radial energy aura
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(
-                        Color(0xFFFB923C).copy(alpha = 0.6f * alpha),
-                        Color(0xFFF43F5E).copy(alpha = 0.3f * alpha),
-                        Color.Transparent
+            if (currentRadius > 0.5f) {
+                // Radial energy aura
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            Color(0xFFFB923C).copy(alpha = 0.6f * alpha),
+                            Color(0xFFF43F5E).copy(alpha = 0.3f * alpha),
+                            Color.Transparent
+                        ),
+                        center = center,
+                        radius = currentRadius
                     ),
                     center = center,
                     radius = currentRadius
-                ),
-                center = center,
-                radius = currentRadius
-            )
+                )
 
-            // Expanding shockwave ring
-            drawCircle(
-                color = Color(0xFFFFE082).copy(alpha = alpha),
-                center = center,
-                radius = currentRadius,
-                style = Stroke(width = 6f * (1f - progress), cap = StrokeCap.Round)
-            )
+                // Expanding shockwave ring
+                drawCircle(
+                    color = Color(0xFFFFE082).copy(alpha = alpha),
+                    center = center,
+                    radius = currentRadius,
+                    style = Stroke(width = (6f * (1f - progress)).coerceAtLeast(0.1f), cap = StrokeCap.Round)
+                )
+            }
         }
     }
 }
