@@ -15,7 +15,7 @@ import com.example.game.model.ObjectiveType
 object LevelProvider {
 
     /** Maximum hand-crafted campaign levels currently available */
-    const val MAX_CAMPAIGN_LEVELS = 5
+    const val MAX_CAMPAIGN_LEVELS = 10
 
     /**
      * Retrieves the [LevelConfig] for the requested [levelNumber].
@@ -31,6 +31,11 @@ object LevelProvider {
             3 -> createLevel3()
             4 -> createLevel4()
             5 -> createLevel5()
+            6 -> createLevel6()
+            7 -> createLevel7()
+            8 -> createLevel8()
+            9 -> createLevel9()
+            10 -> createLevel10()
             else -> createDynamicLevel(safeLevel)
         }
         return if (LevelConfigValidator.isValid(config)) {
@@ -189,7 +194,7 @@ object LevelProvider {
      * Level 5:
      * Difficulty: Expert
      * Board: 8x8, Moves: 22
-     * Objectives: Collect 30 Red candies, Collect 30 Blue candies, Reach 2500 points.
+     * Objectives: Collect 18 Red candies, Collect 18 Blue candies, Reach 1600 points.
      */
     fun createLevel5(): LevelConfig = LevelConfig(
         levelNumber = 5,
@@ -200,27 +205,197 @@ object LevelProvider {
             LevelObjective(
                 id = "lvl5_obj_red",
                 type = ObjectiveType.COLLECT_CANDY,
-                target = 30,
+                target = 18,
                 candyType = CandyType.RED
             ),
             LevelObjective(
                 id = "lvl5_obj_blue",
                 type = ObjectiveType.COLLECT_CANDY,
-                target = 30,
+                target = 18,
                 candyType = CandyType.BLUE
             ),
             LevelObjective(
                 id = "lvl5_obj_score",
                 type = ObjectiveType.TARGET_SCORE,
-                target = 2500
+                target = 1600
             )
         ),
-        targetScore = 2500,
+        targetScore = 1600,
         difficulty = LevelDifficulty.EXPERT
     )
 
     /**
-     * Fallback and procedural level creator for Level 6+ to support future level expansions seamlessly.
+     * Level 6:
+     * Difficulty: Easy/Medium (NORMAL)
+     * Board: 8x8, Moves: 28
+     * Objectives: Collect 22 Green candies, Reach 850 points.
+     */
+    fun createLevel6(): LevelConfig = LevelConfig(
+        levelNumber = 6,
+        rows = DEFAULT_ROWS,
+        columns = DEFAULT_COLUMNS,
+        startingMoves = 28,
+        objectives = listOf(
+            LevelObjective(
+                id = "lvl6_obj_green",
+                type = ObjectiveType.COLLECT_CANDY,
+                target = 22,
+                candyType = CandyType.GREEN
+            ),
+            LevelObjective(
+                id = "lvl6_obj_score",
+                type = ObjectiveType.TARGET_SCORE,
+                target = 850
+            )
+        ),
+        targetScore = 850,
+        difficulty = LevelDifficulty.NORMAL
+    )
+
+    /**
+     * Level 7:
+     * Difficulty: Easy/Medium+ (NORMAL)
+     * Board: 8x8, Moves: 28
+     * Objectives: Collect 18 Yellow candies, Collect 18 Red candies, Reach 1100 points.
+     */
+    fun createLevel7(): LevelConfig = LevelConfig(
+        levelNumber = 7,
+        rows = DEFAULT_ROWS,
+        columns = DEFAULT_COLUMNS,
+        startingMoves = 28,
+        objectives = listOf(
+            LevelObjective(
+                id = "lvl7_obj_yellow",
+                type = ObjectiveType.COLLECT_CANDY,
+                target = 18,
+                candyType = CandyType.YELLOW
+            ),
+            LevelObjective(
+                id = "lvl7_obj_red",
+                type = ObjectiveType.COLLECT_CANDY,
+                target = 18,
+                candyType = CandyType.RED
+            ),
+            LevelObjective(
+                id = "lvl7_obj_score",
+                type = ObjectiveType.TARGET_SCORE,
+                target = 1100
+            )
+        ),
+        targetScore = 1100,
+        difficulty = LevelDifficulty.NORMAL
+    )
+
+    /**
+     * Level 8:
+     * Difficulty: Medium (NORMAL)
+     * Board: 8x8, Moves: 27
+     * Objectives: Collect 20 Blue candies, Collect 20 Purple candies, Reach 1300 points.
+     */
+    fun createLevel8(): LevelConfig = LevelConfig(
+        levelNumber = 8,
+        rows = DEFAULT_ROWS,
+        columns = DEFAULT_COLUMNS,
+        startingMoves = 27,
+        objectives = listOf(
+            LevelObjective(
+                id = "lvl8_obj_blue",
+                type = ObjectiveType.COLLECT_CANDY,
+                target = 20,
+                candyType = CandyType.BLUE
+            ),
+            LevelObjective(
+                id = "lvl8_obj_purple",
+                type = ObjectiveType.COLLECT_CANDY,
+                target = 20,
+                candyType = CandyType.PURPLE
+            ),
+            LevelObjective(
+                id = "lvl8_obj_score",
+                type = ObjectiveType.TARGET_SCORE,
+                target = 1300
+            )
+        ),
+        targetScore = 1300,
+        difficulty = LevelDifficulty.NORMAL
+    )
+
+    /**
+     * Level 9:
+     * Difficulty: Medium+ (HARD)
+     * Board: 8x8, Moves: 26
+     * Objectives: Collect 22 Green candies, Collect 22 Yellow candies, Reach 1500 points.
+     */
+    fun createLevel9(): LevelConfig = LevelConfig(
+        levelNumber = 9,
+        rows = DEFAULT_ROWS,
+        columns = DEFAULT_COLUMNS,
+        startingMoves = 26,
+        objectives = listOf(
+            LevelObjective(
+                id = "lvl9_obj_green",
+                type = ObjectiveType.COLLECT_CANDY,
+                target = 22,
+                candyType = CandyType.GREEN
+            ),
+            LevelObjective(
+                id = "lvl9_obj_yellow",
+                type = ObjectiveType.COLLECT_CANDY,
+                target = 22,
+                candyType = CandyType.YELLOW
+            ),
+            LevelObjective(
+                id = "lvl9_obj_score",
+                type = ObjectiveType.TARGET_SCORE,
+                target = 1500
+            )
+        ),
+        targetScore = 1500,
+        difficulty = LevelDifficulty.HARD
+    )
+
+    /**
+     * Level 10:
+     * Difficulty: Medium/Hard (HARD)
+     * Board: 8x8, Moves: 28
+     * Objectives: Collect 16 Red candies, Collect 16 Blue candies, Collect 16 Orange candies, Reach 1800 points.
+     */
+    fun createLevel10(): LevelConfig = LevelConfig(
+        levelNumber = 10,
+        rows = DEFAULT_ROWS,
+        columns = DEFAULT_COLUMNS,
+        startingMoves = 28,
+        objectives = listOf(
+            LevelObjective(
+                id = "lvl10_obj_red",
+                type = ObjectiveType.COLLECT_CANDY,
+                target = 16,
+                candyType = CandyType.RED
+            ),
+            LevelObjective(
+                id = "lvl10_obj_blue",
+                type = ObjectiveType.COLLECT_CANDY,
+                target = 16,
+                candyType = CandyType.BLUE
+            ),
+            LevelObjective(
+                id = "lvl10_obj_orange",
+                type = ObjectiveType.COLLECT_CANDY,
+                target = 16,
+                candyType = CandyType.ORANGE
+            ),
+            LevelObjective(
+                id = "lvl10_obj_score",
+                type = ObjectiveType.TARGET_SCORE,
+                target = 1800
+            )
+        ),
+        targetScore = 1800,
+        difficulty = LevelDifficulty.HARD
+    )
+
+    /**
+     * Fallback and procedural level creator for Level 11+ to support future level expansions seamlessly.
      */
     private fun createDynamicLevel(levelNumber: Int): LevelConfig {
         val playableCandies = CandyType.playableCandies

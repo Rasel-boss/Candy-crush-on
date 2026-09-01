@@ -13,6 +13,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -221,24 +222,25 @@ fun MainMenuScreen(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // PLAY BUTTON (Primary Prominent Action with vivid jewel gradient & rounded shape)
+                // PLAY BUTTON (Polished Primary Action with balanced dimensions, candy gradient & crisp centering)
                 Button(
                     onClick = onPlayClick,
-                    shape = RoundedCornerShape(22.dp),
+                    shape = RoundedCornerShape(18.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color.Transparent,
                         contentColor = Color.White
                     ),
                     elevation = ButtonDefaults.buttonElevation(
-                        defaultElevation = 8.dp,
-                        pressedElevation = 2.dp
+                        defaultElevation = 0.dp,
+                        pressedElevation = 0.dp
                     ),
+                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(64.dp)
-                        .shadow(12.dp, RoundedCornerShape(22.dp), spotColor = Color(0xFFF43F5E))
-                        .background(playButtonGradient, RoundedCornerShape(22.dp))
-                        .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)), RoundedCornerShape(22.dp))
+                        .height(54.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(playButtonGradient)
+                        .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.30f)), RoundedCornerShape(18.dp))
                         .testTag("play_button")
                 ) {
                     Row(
@@ -249,14 +251,14 @@ fun MainMenuScreen(
                             imageVector = Icons.Default.PlayArrow,
                             contentDescription = null,
                             tint = Color.White,
-                            modifier = Modifier.size(30.dp)
+                            modifier = Modifier.size(24.dp)
                         )
-                        Spacer(modifier = Modifier.width(10.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "PLAY",
-                            style = MaterialTheme.typography.titleLarge.copy(
+                            style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.5.sp
+                                letterSpacing = 1.2.sp
                             ),
                             color = Color.White
                         )
